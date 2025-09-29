@@ -1,0 +1,9 @@
+request_captures
+.venv
+.ropeproject
+/claude-code-proxy
+build/
+node_modules
+*.wasm
+captured_logs/
+.gocache

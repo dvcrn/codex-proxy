@@ -1,0 +1,62 @@
+# Ignore unnecessary files during Docker build
+
+# Git
+.git
+.gitignore
+
+# Environment files
+.env
+.envrc
+
+# Build artifacts
+claude-code-proxy
+*.exe
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Python virtual environment (if any)
+.venv/
+__pycache__/
+*.pyc
+
+# Rope project files
+.ropeproject/
+
+# Request captures and logs
+request_captures/
+*.log
+
+# Documentation
+README.md
+LICENSE
+*.md
+
+# Docker files
+Dockerfile
+.dockerignore
+
+# Just files
+justfile
+
+# Test files
+*_test.go
+test/
+tests/
+
+# Scripts
+*.sh
+update-env.sh
