@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.codex-proxy</string>
+
+    <key>Program</key>
+    <string>/Users/david/src/codex-proxy/run_proxy.sh</string>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/david/src/codex-proxy</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+        <key>Crashed</key>
+        <true/>
+    </dict>
+
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
+    <key>StandardOutPath</key>
+    <string>/Users/david/Library/Logs/codex-proxy.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/david/Library/Logs/codex-proxy.error.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PORT</key>
+        <string>9879</string>
+        <key>HOME</key>
+        <string>/Users/david</string>
+        <key>PATH</key>
+        <string>/opt/homebrew/opt/mise/bin:/opt/homebrew/lib/ruby/gems/3.4.0/bin:/Users/david/.bun/bin:/Users/david/.local/state/fnm_multishells/34633_1754867913469/bin:/opt/homebrew/opt/ruby/bin:/Users/david/Library/Application Support/JetBrains/Toolbox/scripts:/Users/david/.cargo/bin:/Users/david/go/bin:/opt/homebrew/bin:/opt/homebrew/opt/fzf/bin:/Users/david/.fzf/bin:~/.config/pmpm/:/Users/david/.local/state/fnm_multishells/55552_1759145583359/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/pmk/env/global/bin:/Library/Apple/usr/bin:/Applications/Little Snitch.app/Contents/Components:/usr/local/MacGPG2/bin:/Applications/Ghostty.app/Contents/MacOS:/Users/david/.local/bin:/Users/david/.lmstudio/bin:/Users/david/.orbstack/bin</string>
+        <key>ADMIN_API_KEY</key>
+        <string>ALEFZgRuiUGNqxe4Gn8u</string>
+    </dict>
+</dict>
+</plist>
