@@ -65,6 +65,18 @@ The codebase follows Go conventions with internal packages:
   - Adds Claude Code specific system prompts
   - Manages cache control and ephemeral message limits
 
+### API Endpoints
+
+The proxy provides two primary modes of operation via distinct endpoints:
+
+1.  **`/v1/responses` (Native Proxy)**
+    - This is the primary endpoint for new integrations.
+    - It accepts requests in the OpenAI Chat Completions format and forwards them to the upstream `/v1/responses` endpoint after applying necessary transformations.
+
+2.  **`/v1/completions` (Legacy Compatibility)**
+    - This endpoint provides backward compatibility for clients that still use the legacy `/v1/completions` API.
+    - It accepts a legacy request, internally rewrites it into the modern `/v1/responses` format, and then forwards it upstream. This allows older clients to benefit from the new backend without modification.
+
 ### Key Transformations
 
 1. **System Prompt Transformation** (`transformSystemPrompt`):
