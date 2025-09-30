@@ -9,14 +9,36 @@ func transformResponsesRequestBody(body map[string]interface{}, requestedModel s
 	// Responses must always disable server-side store per upstream requirements
 	body["store"] = false
 
-	instructions := codexInstructionsPrefix()
+	// Preserve any user-provided instructions separately and do NOT merge them
+	// into the core Codex system prompt. Instead, set the canonical instructions
+	// to the codex prefix and append the user's instructions as an additional
+	// `input` message so the upstream system prompt remains unchanged.
+	var userInstr string
 	if existingInstr, ok := body["instructions"].(string); ok {
-		trimmed := strings.TrimSpace(existingInstr)
-		if trimmed != "" {
-			instructions = instructions + "\n\n" + replaceNames(trimmed)
-		}
+		userInstr = strings.TrimSpace(existingInstr)
+		// remove original to avoid accidental merging downstream
+		delete(body, "instructions")
 	}
+
+	instructions := codexInstructionsPrefix()
 	body["instructions"] = instructions
+
+	if userInstr != "" {
+		repl := replaceNames(userInstr)
+		inSlice, _ := body["input"].([]interface{})
+		userMsg := map[string]interface{}{
+			"type": "message",
+			"id":   nil,
+			"role": "user",
+			"content": []interface{}{
+				map[string]interface{}{
+					"type": "input_text",
+					"text": repl,
+				},
+			},
+		}
+		body["input"] = append(inSlice, userMsg)
+	}
 
 	sanitizeResponsesInput(body)
 
