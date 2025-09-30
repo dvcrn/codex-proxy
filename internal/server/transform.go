@@ -714,6 +714,19 @@ func (t *SSETransformer) Transform(dataLine []byte) (out []byte, done bool, err 
 	}
 
 	if strings.HasPrefix(eventType, "response.reasoning") {
+		// The upstream API can send multiple reasoning items (with incrementing
+		// output_index) in a single response stream. This can result in multiple
+		// "Thinking" bubbles appearing in the client UI for a single turn, which
+		// can be confusing. To simplify the UI, we only process the first
+		// reasoning item (output_index: 0) and explicitly ignore any subsequent
+		// reasoning items in the same stream.
+		if outputIndex, ok := upstream["output_index"].(float64); ok && outputIndex > 0 {
+			return nil, false, nil
+		}
+
+		if !strings.Contains(eventType, ".delta") {
+			return nil, false, nil
+		}
 		reasoningText := extractReasoningContent(upstream)
 		if reasoningText == "" {
 			return nil, false, nil
