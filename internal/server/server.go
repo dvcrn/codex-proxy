@@ -477,28 +477,23 @@ func (s *Server) writeResponse(w http.ResponseWriter, resp *http.Response, statu
 			out = sseFlushWriter{w: w, f: flusher}
 		}
 
-		// Add verbose debug of upstream and transformed payloads per event.
+		chunkCount := 0
+		streamStart := time.Now()
+
+		// Provide lightweight visibility into streaming progress without flooding logs.
 		debugFn := func(raw []byte, transformed []byte, done bool) {
 			logReasoningEvent(s.logger, raw)
-			const previewLimit = 256
-			if len(transformed) == 0 && len(raw) > 2048 && !done {
+			if done {
+				s.logger.Debug().
+					Int("chunks", chunkCount).
+					Dur("elapsed", time.Since(streamStart)).
+					Msg("Streaming response completed")
 				return
 			}
-			rawPreview := string(raw)
-			if len(rawPreview) > previewLimit {
-				rawPreview = rawPreview[:previewLimit] + "…"
+			if chunkCount == 0 {
+				s.logger.Debug().Msg("Streaming response in progress…")
 			}
-			outPreview := string(transformed)
-			if len(outPreview) > previewLimit {
-				outPreview = outPreview[:previewLimit] + "…"
-			}
-			s.logger.Debug().
-				Int("raw_len", len(raw)).
-				Int("out_len", len(transformed)).
-				Bool("done", done).
-				Str("raw_preview", rawPreview).
-				Str("out_preview", outPreview).
-				Msg("SSE event transformed")
+			chunkCount++
 		}
 
 		if convertSSE {
