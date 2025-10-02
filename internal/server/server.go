@@ -173,6 +173,7 @@ func (s *Server) chatCompletionsHandler(w http.ResponseWriter, r *http.Request) 
 
 	// Build target body for ChatGPT Codex Responses
 	target := buildCodexRequestBody(requestData)
+
 	// Debug: log inbound and outbound (sanitized previews)
 	inboundPreview := string(requestBodyBytes)
 	if len(inboundPreview) > 1200 {
