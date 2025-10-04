@@ -154,16 +154,17 @@ func TestNormalizeModel(t *testing.T) {
 }
 
 func TestNormalizeReasoningEffort(t *testing.T) {
-	testCases := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{"explicit low", "low", "low"},
-		{"explicit medium", "medium", "medium"},
-		{"explicit high", "high", "high"},
-		{"none maps to low", "none", "low"},
-		{"uppercase", "MEDIUM", "medium"},
+    testCases := []struct {
+        name     string
+        input    string
+        expected string
+    }{
+        {"explicit minimal", "minimal", "minimal"},
+        {"explicit low", "low", "low"},
+        {"explicit medium", "medium", "medium"},
+        {"explicit high", "high", "high"},
+        {"none maps to low", "none", "low"},
+        {"uppercase", "MEDIUM", "medium"},
 		{"empty", "", ""},
 		{"invalid", "aggressive", ""},
 	}
