@@ -57,6 +57,7 @@ func New(logger zerolog.Logger, credsFetcher credentials.CredentialsFetcher) *Se
 func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/v1/chat/completions", s.adminMiddleware(s.chatCompletionsHandler))
 	s.mux.HandleFunc("/v1/responses", s.adminMiddleware(s.responsesHandler))
+	s.mux.HandleFunc("/v1/models", s.modelsHandler)
 	s.mux.HandleFunc("/health", s.healthHandler)
 	s.mux.HandleFunc("/admin/credentials", s.adminMiddleware(s.credentialsHandler))
 	s.mux.HandleFunc("/admin/credentials/status", s.adminMiddleware(s.credentialsStatusHandler))
@@ -94,6 +95,23 @@ func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"status": "ok"}`))
+}
+
+func (s *Server) modelsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	response := modelsResponse{
+		Object: "list",
+		Data:   supportedModels(),
+	}
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		s.logger.Error().Err(err).Msg("Failed to encode models response")
+	}
 }
 
 func (s *Server) notFoundHandler(w http.ResponseWriter, r *http.Request) {

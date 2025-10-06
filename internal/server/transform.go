@@ -289,27 +289,27 @@ func resolveRequestModel(requestData map[string]interface{}) string {
 			return model
 		}
 	}
-	return "gpt-5"
+	return modelGPT5
 }
 
 func normalizeModel(model string) string {
 	lower := strings.ToLower(strings.TrimSpace(model))
 	if strings.Contains(lower, "codex") {
-		return "gpt-5-codex"
+		return modelGPT5Codex
 	}
-	return "gpt-5"
+	return modelGPT5
 }
 
 func normalizeReasoningEffort(effort string) string {
-    switch strings.ToLower(strings.TrimSpace(effort)) {
-    case "minimal":
-        return "minimal"
-    case "low":
-        return "low"
-    case "medium":
-        return "medium"
-    case "high":
-        return "high"
+	switch strings.ToLower(strings.TrimSpace(effort)) {
+	case "minimal":
+		return "minimal"
+	case "low":
+		return "low"
+	case "medium":
+		return "medium"
+	case "high":
+		return "high"
 	case "none":
 		return "low"
 	default:
@@ -684,7 +684,7 @@ type SSETransformer struct {
 func NewSSETransformer(model string) *SSETransformer {
 	model = strings.TrimSpace(model)
 	if model == "" {
-		model = "gpt-5"
+		model = modelGPT5
 	}
 	return &SSETransformer{
 		model:             model,
