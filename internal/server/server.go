@@ -370,7 +370,85 @@ func (s *Server) responsesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if statusCode >= 400 {
+		preview := previewResponseBody(responseData)
+		shape := describeResponsesInputShape(requestData)
+		inboundPreview := string(requestBodyBytes)
+		if len(inboundPreview) > 600 {
+			inboundPreview = inboundPreview[:600] + "…(truncated)"
+		}
+		outboundPreview := string(modifiedBodyBytes)
+		if len(outboundPreview) > 600 {
+			outboundPreview = outboundPreview[:600] + "…(truncated)"
+		}
+		s.logger.Warn().
+			Int("status_code", statusCode).
+			Str("content_type", responseData.Header.Get("Content-Type")).
+			Str("response_body_preview", preview).
+			Strs("input_item_types", shape).
+			Str("incoming_user_agent", r.UserAgent()).
+			Int("input_count", inputCount).
+			Str("inbound_body_preview", inboundPreview).
+			Str("outbound_body_preview", outboundPreview).
+			Msg("Upstream error encountered for responses request")
+	}
+
 	s.writeResponse(w, responseData, statusCode, normalizedModel, false)
+}
+
+func previewResponseBody(resp *http.Response) string {
+	if resp == nil || resp.Body == nil {
+		return ""
+	}
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		resp.Body = io.NopCloser(bytes.NewReader(nil))
+		return fmt.Sprintf("<error reading body: %v>", err)
+	}
+
+	resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+	preview := string(bodyBytes)
+	if len(preview) > 1200 {
+		return preview[:1200] + "…(truncated)"
+	}
+	return preview
+}
+
+func describeResponsesInputShape(body map[string]interface{}) []string {
+	input, ok := body["input"].([]interface{})
+	if !ok {
+		return []string{"<missing>"}
+	}
+
+	shapes := make([]string, 0, len(input))
+	for _, item := range input {
+		switch v := item.(type) {
+		case map[string]interface{}:
+			typ, _ := v["type"].(string)
+			if typ == "" {
+				typ = "message"
+			}
+			role, _ := v["role"].(string)
+			if role != "" {
+				typ = fmt.Sprintf("%s(role=%s)", typ, role)
+			}
+			shapes = append(shapes, typ)
+		case []interface{}:
+			shapes = append(shapes, fmt.Sprintf("array(len=%d)", len(v)))
+		case string:
+			shapes = append(shapes, fmt.Sprintf("string(len=%d)", len(v)))
+		case nil:
+			shapes = append(shapes, "null")
+		default:
+			shapes = append(shapes, fmt.Sprintf("%T", v))
+		}
+	}
+
+	if len(shapes) == 0 {
+		return []string{"<empty>"}
+	}
+	return shapes
 }
 
 func (s *Server) makeChatGPTRequest(r *http.Request, url string, body []byte, token, accountID string) (*http.Response, int, error) {

@@ -37,9 +37,14 @@ func transformResponsesRequestBody(body map[string]interface{}, requestedModel s
 
 	allInstructions := []interface{}{overrideInstructions}
 
+	if existingInput, ok := body["input"]; ok {
+		if inSlice, ok := existingInput.([]interface{}); ok {
+			allInstructions = append(allInstructions, inSlice...)
+		}
+	}
+
 	if userInstr != "" {
 		repl := replaceNames(userInstr)
-		inSlice, _ := body["input"].([]interface{})
 		userMsg := map[string]interface{}{
 			"type": "message",
 			"id":   nil,
@@ -51,7 +56,7 @@ func transformResponsesRequestBody(body map[string]interface{}, requestedModel s
 				},
 			},
 		}
-		allInstructions = append(allInstructions, inSlice, userMsg)
+		allInstructions = append(allInstructions, userMsg)
 	}
 
 	body["input"] = allInstructions

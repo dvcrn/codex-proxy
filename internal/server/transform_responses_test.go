@@ -78,6 +78,13 @@ func TestTransformResponsesRequestBody(t *testing.T) {
 	if body["parallel_tool_calls"] != false {
 		t.Fatalf("expected parallel_tool_calls to default to false, got %v", body["parallel_tool_calls"])
 	}
+
+	input := body["input"].([]interface{})
+	for idx, item := range input {
+		if _, ok := item.([]interface{}); ok {
+			t.Fatalf("input[%d] should be a message map, found nested array", idx)
+		}
+	}
 }
 
 func containsSubstring(s, substr string) bool {

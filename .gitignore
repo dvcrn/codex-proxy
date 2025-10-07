@@ -7,3 +7,5 @@ node_modules
 *.wasm
 captured_logs/
 .gocache
+./codex-proxy
+/codex-proxy
