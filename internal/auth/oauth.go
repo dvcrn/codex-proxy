@@ -10,9 +10,9 @@ import (
 
 const (
 	// OAuthTokenURL is the endpoint for refreshing OAuth tokens
-	OAuthTokenURL = "https://console.anthropic.com/v1/oauth/token"
-	// ClientID is the OAuth client ID for Claude Code
-	ClientID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
+	OAuthTokenURL = "https://auth.openai.com/oauth/token"
+	// ClientID is the OAuth client ID for ChatGPT/Codex
+	ClientID = "app_EMoamEEZ73f0CkXaXp7hrann"
 	// TokenExpiryBuffer is the buffer time before token expiry to trigger refresh (60 minutes)
 	TokenExpiryBuffer = 60 * time.Minute
 )
@@ -30,6 +30,7 @@ func RefreshToken(refreshToken string) (*TokenRefreshResponse, error) {
 		GrantType:    "refresh_token",
 		RefreshToken: refreshToken,
 		ClientID:     ClientID,
+		Scope:        "openid profile email",
 	}
 
 	jsonData, err := json.Marshal(request)

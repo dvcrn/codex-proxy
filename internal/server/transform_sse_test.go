@@ -158,3 +158,98 @@ func TestRewriteSSEStream_CodexToolCalls_ToOpenAI(t *testing.T) {
 		t.Fatalf("missing DONE marker: %q", out)
 	}
 }
+
+func TestRewriteSSEStream_WhitespacePreservation(t *testing.T) {
+	// Test that newlines and whitespace-only deltas are preserved through transformation
+	// This simulates: text "Foo" followed by newline "\n" followed by markdown "**Bar**"
+	src := strings.Join([]string{
+		"data: {\"type\":\"response.created\",\"sequence_number\":1,\"response\":{\"id\":\"resp_ws\"}}",
+		"",
+		`data: {"type":"response.output_text.delta","sequence_number":2,"delta":"Foo"}`,
+		"",
+		`data: {"type":"response.output_text.delta","sequence_number":3,"delta":"\n"}`,
+		"",
+		`data: {"type":"response.output_text.delta","sequence_number":4,"delta":"**Bar**"}`,
+		"",
+		"data: {\"type\":\"response.completed\",\"sequence_number\":5}",
+		"",
+		"data: [DONE]",
+		"",
+	}, "\n")
+
+	var dst bytes.Buffer
+	if err := RewriteSSEStream(strings.NewReader(src), &dst, "gpt-5"); err != nil {
+		t.Fatalf("rewrite failed: %v", err)
+	}
+	out := dst.String()
+
+	// Should include role chunk
+	if !strings.Contains(out, "\"delta\":{\"role\":\"assistant\"}") {
+		t.Fatalf("missing assistant role delta: %q", out)
+	}
+
+	// Should include "Foo" content
+	if !strings.Contains(out, "\"content\":\"Foo\"") {
+		t.Fatalf("missing 'Foo' content delta: %q", out)
+	}
+
+	// CRITICAL: Should include newline content as "\n" (JSON-encoded)
+	if !strings.Contains(out, "\"content\":\"\\n\"") {
+		t.Fatalf("missing newline content delta - whitespace may be stripped: %q", out)
+	}
+
+	// Should include "**Bar**" content
+	if !strings.Contains(out, "\"content\":\"**Bar**\"") {
+		t.Fatalf("missing '**Bar**' content delta: %q", out)
+	}
+
+	// Should have stop finish reason
+	if !strings.Contains(out, "\"finish_reason\":\"stop\"") {
+		t.Fatalf("missing stop finish_reason: %q", out)
+	}
+}
+
+func TestRewriteSSEStream_ReasoningMarkdownHeaders(t *testing.T) {
+	// Test that bold markdown headers in reasoning content get newlines prepended
+	// This simulates: reasoning delta "**Analysis**" should become "\n\n**Analysis**"
+	src := strings.Join([]string{
+		"data: {\"type\":\"response.created\",\"sequence_number\":1,\"response\":{\"id\":\"resp_reasoning\"}}",
+		"",
+		`data: {"type":"response.reasoning.delta","sequence_number":2,"output_index":0,"delta":"Looking at the code"}`,
+		"",
+		`data: {"type":"response.reasoning.delta","sequence_number":3,"output_index":0,"delta":"**Key Issues**"}`,
+		"",
+		`data: {"type":"response.reasoning.delta","sequence_number":4,"output_index":0,"delta":"The problem is..."}`,
+		"",
+		"data: {\"type\":\"response.completed\",\"sequence_number\":5}",
+		"",
+		"data: [DONE]",
+		"",
+	}, "\n")
+
+	var dst bytes.Buffer
+	if err := RewriteSSEStream(strings.NewReader(src), &dst, "gpt-5"); err != nil {
+		t.Fatalf("rewrite failed: %v", err)
+	}
+	out := dst.String()
+
+	// Should include role chunk
+	if !strings.Contains(out, "\"delta\":{\"role\":\"assistant\"}") {
+		t.Fatalf("missing assistant role delta: %q", out)
+	}
+
+	// Should include first reasoning delta
+	if !strings.Contains(out, "\"reasoning_content\":\"Looking at the code\"") {
+		t.Fatalf("missing first reasoning delta: %q", out)
+	}
+
+	// CRITICAL: Should include markdown header with prepended newlines
+	if !strings.Contains(out, "\"reasoning_content\":\"\\n\\n**Key Issues**\"") {
+		t.Fatalf("markdown header should have newlines prepended: %q", out)
+	}
+
+	// Should include third reasoning delta
+	if !strings.Contains(out, "\"reasoning_content\":\"The problem is...\"") {
+		t.Fatalf("missing third reasoning delta: %q", out)
+	}
+}

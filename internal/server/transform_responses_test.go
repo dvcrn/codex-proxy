@@ -32,16 +32,30 @@ func TestTransformResponsesRequestBody(t *testing.T) {
 	}
 
 	instr, _ := body["instructions"].(string)
-	if !containsSubstring(instr, "Please greet Codex.") {
-		t.Fatalf("instructions should include replaced text, got %q", instr)
+	if instr == "" || containsSubstring(instr, "Please greet Codex.") {
+		t.Fatalf("instructions should be canonical prefix and not include user text, got %q", instr)
 	}
 
 	input := body["input"].([]interface{})
-	msg := input[0].(map[string]interface{})
-	content := msg["content"].([]interface{})
-	item := content[0].(map[string]interface{})
-	if item["text"] != "Hello from Codex" {
-		t.Fatalf("expected text replacement, got %q", item["text"])
+	found := false
+	for _, it := range input {
+		msg, ok := it.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		content, ok := msg["content"].([]interface{})
+		if !ok || len(content) == 0 {
+			continue
+		}
+		if item, ok := content[0].(map[string]interface{}); ok {
+			if txt, _ := item["text"].(string); txt == "Hello from Codex" {
+				found = true
+				break
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("expected to find replaced user text 'Hello from Codex' in input messages; got %v", body["input"])
 	}
 
 	reasoning, ok := body["reasoning"].(map[string]interface{})
@@ -79,8 +93,8 @@ func TestTransformResponsesRequestBody(t *testing.T) {
 		t.Fatalf("expected parallel_tool_calls to default to false, got %v", body["parallel_tool_calls"])
 	}
 
-	input := body["input"].([]interface{})
-	for idx, item := range input {
+	inputMessages := body["input"].([]interface{})
+	for idx, item := range inputMessages {
 		if _, ok := item.([]interface{}); ok {
 			t.Fatalf("input[%d] should be a message map, found nested array", idx)
 		}

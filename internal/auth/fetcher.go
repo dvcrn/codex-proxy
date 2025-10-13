@@ -14,14 +14,19 @@ type OAuthFetcher struct {
 	baseFetcher credentials.OAuthCredentialsFetcher
 	logger      *zerolog.Logger
 	mu          sync.RWMutex
+	stopCh      chan struct{}
 }
 
 // NewOAuthFetcher creates a new OAuth credentials fetcher that wraps an existing fetcher
 func NewOAuthFetcher(baseFetcher credentials.OAuthCredentialsFetcher, logger *zerolog.Logger) *OAuthFetcher {
-	return &OAuthFetcher{
+	f := &OAuthFetcher{
 		baseFetcher: baseFetcher,
 		logger:      logger,
+		stopCh:      make(chan struct{}),
 	}
+	// Start background refresh goroutine
+	go f.backgroundRefresh()
+	return f
 }
 
 // GetCredentials returns the access token and user ID, refreshing if necessary
@@ -131,4 +136,86 @@ func UnixMillis() int64 {
 // UnixNano returns the current time in nanoseconds
 func UnixNano() int64 {
 	return int64(time.Now().UnixNano())
+}
+
+// backgroundRefresh periodically checks and refreshes tokens if they're expiring soon
+func (o *OAuthFetcher) backgroundRefresh() {
+	ticker := time.NewTicker(10 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			o.checkAndRefreshToken()
+		case <-o.stopCh:
+			if o.logger != nil {
+				o.logger.Debug().Msg("Background token refresh stopped")
+			}
+			return
+		}
+	}
+}
+
+// checkAndRefreshToken checks if the token needs refresh and performs it if necessary
+func (o *OAuthFetcher) checkAndRefreshToken() {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	creds, err := o.baseFetcher.GetFullCredentials()
+	if err != nil {
+		if o.logger != nil {
+			o.logger.Error().Err(err).Msg("Background refresh: failed to get credentials")
+		}
+		return
+	}
+
+	// Check if token needs refresh
+	if !TokenExpired(creds.ExpiresAt) {
+		if o.logger != nil {
+			minutesUntilExpiry := (creds.ExpiresAt - UnixMillis()) / 1000 / 60
+			o.logger.Debug().
+				Int64("minutes_until_expiry", minutesUntilExpiry).
+				Msg("Background refresh: token still valid")
+		}
+		return
+	}
+
+	if o.logger != nil {
+		minutesUntilExpiry := (creds.ExpiresAt - UnixMillis()) / 1000 / 60
+		o.logger.Info().
+			Int64("minutes_until_expiry", minutesUntilExpiry).
+			Msg("🔄 Background refresh: token expiring soon, refreshing...")
+	}
+
+	// Perform token refresh
+	newTokens, err := RefreshToken(creds.RefreshToken)
+	if err != nil {
+		if o.logger != nil {
+			o.logger.Error().Err(err).Msg("❌ Background refresh: failed to refresh token")
+		}
+		return
+	}
+
+	// Calculate new expiry time
+	expiresAt := CalculateExpiresAt(newTokens.ExpiresIn)
+
+	// Update tokens in the underlying storage
+	if err := o.baseFetcher.UpdateTokens(newTokens.AccessToken, newTokens.RefreshToken, expiresAt); err != nil {
+		if o.logger != nil {
+			o.logger.Error().Err(err).Msg("❌ Background refresh: failed to update tokens in storage")
+		}
+		return
+	}
+
+	if o.logger != nil {
+		minutesUntilExpiry := (expiresAt - UnixMillis()) / 1000 / 60
+		o.logger.Info().
+			Int64("new_expiry_minutes", minutesUntilExpiry).
+			Msg("✅ Background refresh: token refreshed successfully")
+	}
+}
+
+// Close stops the background refresh goroutine
+func (o *OAuthFetcher) Close() {
+	close(o.stopCh)
 }

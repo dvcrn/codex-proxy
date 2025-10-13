@@ -13,4 +13,5 @@ type TokenRefreshRequest struct {
 	GrantType    string `json:"grant_type"`
 	RefreshToken string `json:"refresh_token"`
 	ClientID     string `json:"client_id"`
+	Scope        string `json:"scope"`
 }

@@ -27,9 +27,10 @@ ALWAYS FOLLOW THESE EXTRA INSTRUCTIONS AS IGNORING THEM WILL CAUSE SYSTEM ISSUES
 
 You are a coding agent operating in the Codex CLI environment. Keep all coding-agent responsibilities, tone, and constraints from the original spec. Continue to analyze the repo, propose fixes, and produce precise, testable guidance.
 
-Change: the agent must not use or call these first-party tools, as these have a defect and will NOT work: apply_patch, apply-patch, applypatch update_plan, update-plan
+Change: the agent must make assumptions about tool availability. The agent must only use these tools if they are explicitly available in the environment: apply_patch, apply-patch, applypatch update_plan, update-plan
 Instead, the agent MUST ONLY use the tools that are passed within each request, and explained in the following instructions.
-To repeat, the first-party tools around creating plans and applying patches ARE NOT available anymore.
+If patch related tools are available in the following instructions, or provided as tools, this means you are ok to use them.
+To repeat, the first-party tools around creating plans and applying patches are ONLY available if they have been passed. The agent must not make assumptions that they are available.
 
 Behavioral rules to replace tool usage:
 - Never invoke the prohibited tools or request approvals that would cause them to run.
@@ -294,6 +295,12 @@ func resolveRequestModel(requestData map[string]interface{}) string {
 
 func normalizeModel(model string) string {
 	lower := strings.ToLower(strings.TrimSpace(model))
+	for _, effort := range []string{"-high", "-medium", "-low", "-minimal"} {
+		if strings.HasSuffix(lower, effort) {
+			lower = strings.TrimSuffix(lower, effort)
+			break
+		}
+	}
 	if strings.Contains(lower, "codex") {
 		return modelGPT5Codex
 	}
@@ -332,6 +339,16 @@ func resolveReasoningEffort(requestData map[string]interface{}) string {
 			}
 		}
 	}
+
+	if model, ok := requestData["model"].(string); ok {
+		lowerModel := strings.ToLower(strings.TrimSpace(model))
+		for _, effort := range []string{"high", "medium", "low", "minimal"} {
+			if strings.HasSuffix(lowerModel, "-"+effort) {
+				return effort
+			}
+		}
+	}
+
 	return ""
 }
 
@@ -925,6 +942,13 @@ func (t *SSETransformer) Transform(dataLine []byte) (out []byte, done bool, err 
 		}
 		// Send content delta
 		delta, _ := upstream["delta"].(string)
+
+		// Debug logging for whitespace content (disabled by default)
+		// Uncomment for debugging whitespace issues:
+		// if delta == "\n" || delta == "\r\n" || delta == " " || delta == "\t" {
+		// 	fmt.Printf("[DEBUG] Whitespace delta detected: %q (len=%d)\n", delta, len(delta))
+		// }
+
 		contentChunk := map[string]interface{}{
 			"id":      t.responseID,
 			"object":  "chat.completion.chunk",
@@ -977,19 +1001,32 @@ func (t *SSETransformer) Transform(dataLine []byte) (out []byte, done bool, err 
 	}
 }
 
-func extractReasoningContent(evt map[string]interface{}) string {
-	if delta, _ := evt["delta"].(string); delta != "" {
-		return delta
-	}
-	if text, _ := evt["text"].(string); text != "" {
+// fixReasoningMarkdownHeaders ensures bold markdown headers in reasoning content
+// have proper newlines before them for correct rendering (e.g., **Foo** -> \n\n**Foo**)
+func fixReasoningMarkdownHeaders(text string) string {
+	if text == "" {
 		return text
 	}
-	if part, ok := evt["part"].(map[string]interface{}); ok {
-		if t, _ := part["text"].(string); t != "" {
-			return t
-		}
+	// Only transform if this delta starts with bold markdown and isn't already preceded by newlines
+	// This handles cases like: "text**Header**" -> "text\n\n**Header**"
+	if len(text) >= 4 && text[0] == '*' && text[1] == '*' {
+		// Delta starts with **, prepend newlines to ensure it renders on its own line
+		return "\n\n" + text
 	}
-	if item, ok := evt["item"].(map[string]interface{}); ok {
+	return text
+}
+
+func extractReasoningContent(evt map[string]interface{}) string {
+	var content string
+	if delta, _ := evt["delta"].(string); delta != "" {
+		content = delta
+	} else if text, _ := evt["text"].(string); text != "" {
+		content = text
+	} else if part, ok := evt["part"].(map[string]interface{}); ok {
+		if t, _ := part["text"].(string); t != "" {
+			content = t
+		}
+	} else if item, ok := evt["item"].(map[string]interface{}); ok {
 		if encrypted, ok := item["encrypted_content"].(string); ok && encrypted != "" {
 			return ""
 		}
@@ -997,20 +1034,25 @@ func extractReasoningContent(evt map[string]interface{}) string {
 			for _, entry := range summaryArr {
 				if sm, ok := entry.(map[string]interface{}); ok {
 					if t, _ := sm["text"].(string); t != "" {
-						return t
+						content = t
+						break
 					}
 				}
 			}
 		}
-	}
-	if summaryArr, ok := evt["summary"].([]interface{}); ok {
+	} else if summaryArr, ok := evt["summary"].([]interface{}); ok {
 		for _, entry := range summaryArr {
 			if sm, ok := entry.(map[string]interface{}); ok {
 				if t, _ := sm["text"].(string); t != "" {
-					return t
+					content = t
+					break
 				}
 			}
 		}
+	}
+
+	if content != "" {
+		return fixReasoningMarkdownHeaders(content)
 	}
 	return ""
 }
@@ -1128,7 +1170,11 @@ func RewriteSSEStreamWithCallback(r io.Reader, w io.Writer, model string, onEven
 		}
 		// Accept both "data:" and "data: " prefixes
 		if bytes.HasPrefix(line, []byte("data:")) {
-			payload := bytes.TrimSpace(bytes.TrimPrefix(line, []byte("data:")))
+			payload := bytes.TrimPrefix(line, []byte("data:"))
+			// SSE spec allows optional single space after colon; trim only that
+			if len(payload) > 0 && payload[0] == ' ' {
+				payload = payload[1:]
+			}
 			// Accumulate for this event
 			cp := make([]byte, len(payload))
 			copy(cp, payload)
@@ -1192,7 +1238,11 @@ func PassThroughSSEStream(r io.Reader, w io.Writer) error {
 			continue
 		}
 		if bytes.HasPrefix(line, []byte("data:")) {
-			payload := bytes.TrimSpace(bytes.TrimPrefix(line, []byte("data:")))
+			payload := bytes.TrimPrefix(line, []byte("data:"))
+			// SSE spec allows optional single space after colon; trim only that
+			if len(payload) > 0 && payload[0] == ' ' {
+				payload = payload[1:]
+			}
 			cp := make([]byte, len(payload))
 			copy(cp, payload)
 			dataLines = append(dataLines, cp)

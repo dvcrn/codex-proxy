@@ -159,36 +159,6 @@ func (s *Server) chatCompletionsHandler(w http.ResponseWriter, r *http.Request) 
 
 	logToolCallInteractions(s.logger, requestData)
 
-	// Extract input parameters for logging before modifications (not used currently)
-
-	// Get current credentials (token + accountID)
-	token, accountID, err := s.credsFetcher.GetCredentials()
-	if err != nil {
-		s.logger.Error().Err(err).Msg("Failed to get credentials")
-		http.Error(w, "Failed to get credentials", http.StatusInternalServerError)
-		return
-	}
-	// Basic visibility into the token shape without leaking secrets
-	tokenTrimmed := strings.TrimSpace(token)
-	hadBearerPrefix := false
-	if len(tokenTrimmed) >= 7 && strings.EqualFold(tokenTrimmed[:7], "Bearer ") {
-		hadBearerPrefix = true
-	}
-	tokenPreview := ""
-	if len(tokenTrimmed) > 12 {
-		tokenPreview = tokenTrimmed[:6] + "…" + tokenTrimmed[len(tokenTrimmed)-6:]
-	} else {
-		tokenPreview = tokenTrimmed
-	}
-	isLikelyJWT := strings.Count(tokenTrimmed, ".") == 2
-	s.logger.Info().
-		Str("account_id", accountID).
-		Int("token_len", len(tokenTrimmed)).
-		Bool("token_is_jwt", isLikelyJWT).
-		Bool("token_has_bearer_prefix", hadBearerPrefix).
-		Str("token_preview", tokenPreview).
-		Msg("Upstream auth details (sanitized)")
-
 	// Build target body for ChatGPT Codex Responses
 	target := buildCodexRequestBody(requestData)
 
@@ -250,8 +220,8 @@ func (s *Server) chatCompletionsHandler(w http.ResponseWriter, r *http.Request) 
 
 	logEvent.Msg("Processing chat completion request")
 
-	// Make upstream request
-	responseData, statusCode, err := s.makeChatGPTRequest(r, upstreamURL, modifiedBodyBytes, tokenTrimmed, accountID)
+	// Make upstream request with automatic retry on 401
+	responseData, statusCode, err := s.makeChatGPTRequestWithRetry(r, upstreamURL, modifiedBodyBytes)
 	if err != nil {
 		s.logger.Error().Err(err).Msg("Error making request to ChatGPT backend")
 		http.Error(w, "Failed to communicate with upstream API: "+err.Error(), http.StatusServiceUnavailable)
@@ -301,30 +271,6 @@ func (s *Server) responsesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, accountID, err := s.credsFetcher.GetCredentials()
-	if err != nil {
-		s.logger.Error().Err(err).Msg("Failed to get credentials")
-		http.Error(w, "Failed to get credentials", http.StatusInternalServerError)
-		return
-	}
-	tokenTrimmed := strings.TrimSpace(token)
-	hadBearerPrefix := false
-	if len(tokenTrimmed) >= 7 && strings.EqualFold(tokenTrimmed[:7], "Bearer ") {
-		hadBearerPrefix = true
-	}
-	tokenPreview := tokenTrimmed
-	if len(tokenTrimmed) > 12 {
-		tokenPreview = tokenTrimmed[:6] + "…" + tokenTrimmed[len(tokenTrimmed)-6:]
-	}
-	isLikelyJWT := strings.Count(tokenTrimmed, ".") == 2
-	s.logger.Info().
-		Str("account_id", accountID).
-		Int("token_len", len(tokenTrimmed)).
-		Bool("token_is_jwt", isLikelyJWT).
-		Bool("token_has_bearer_prefix", hadBearerPrefix).
-		Str("token_preview", tokenPreview).
-		Msg("Upstream auth details (sanitized)")
-
 	// Debug previews
 	inboundPreview := string(requestBodyBytes)
 	if len(inboundPreview) > 1200 {
@@ -363,7 +309,7 @@ func (s *Server) responsesHandler(w http.ResponseWriter, r *http.Request) {
 		Str("endpoint", upstreamURL)
 	logEvent.Msg("Processing responses request")
 
-	responseData, statusCode, err := s.makeChatGPTRequest(r, upstreamURL, modifiedBodyBytes, tokenTrimmed, accountID)
+	responseData, statusCode, err := s.makeChatGPTRequestWithRetry(r, upstreamURL, modifiedBodyBytes)
 	if err != nil {
 		s.logger.Error().Err(err).Msg("Error making request to ChatGPT backend")
 		http.Error(w, "Failed to communicate with upstream API: "+err.Error(), http.StatusServiceUnavailable)
@@ -492,6 +438,62 @@ func (s *Server) makeChatGPTRequest(r *http.Request, url string, body []byte, to
 	}
 
 	return resp, resp.StatusCode, nil
+}
+
+// makeChatGPTRequestWithRetry makes a request to ChatGPT API with automatic retry on 401 errors
+func (s *Server) makeChatGPTRequestWithRetry(r *http.Request, url string, body []byte) (*http.Response, int, error) {
+	// Get initial credentials
+	token, accountID, err := s.credsFetcher.GetCredentials()
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get credentials: %w", err)
+	}
+
+	// Make the first request
+	resp, statusCode, err := s.makeChatGPTRequest(r, url, body, token, accountID)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// If not a 401 error, return the response as-is
+	if statusCode != http.StatusUnauthorized {
+		return resp, statusCode, nil
+	}
+
+	// Log the 401 error and attempt token refresh
+	s.logger.Warn().Msg("Received 401 Unauthorized, attempting token refresh...")
+
+	// Close the first response body since we're going to retry
+	resp.Body.Close()
+
+	// Attempt to refresh credentials
+	err = s.credsFetcher.RefreshCredentials()
+	if err != nil {
+		s.logger.Error().Err(err).Msg("Failed to refresh credentials after 401 error")
+		// Return a 401 response since we couldn't refresh
+		return nil, http.StatusUnauthorized, fmt.Errorf("token expired and refresh failed: %w", err)
+	}
+
+	s.logger.Info().Msg("Successfully refreshed credentials, retrying request...")
+
+	// Get the new credentials
+	token, accountID, err = s.credsFetcher.GetCredentials()
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get refreshed credentials: %w", err)
+	}
+
+	// Retry the request with new credentials
+	resp, statusCode, err = s.makeChatGPTRequest(r, url, body, token, accountID)
+	if err != nil {
+		return nil, 0, fmt.Errorf("retry request failed: %w", err)
+	}
+
+	if statusCode == http.StatusUnauthorized {
+		s.logger.Error().Msg("Still received 401 after token refresh, giving up")
+	} else {
+		s.logger.Info().Msg("Request succeeded after token refresh")
+	}
+
+	return resp, statusCode, nil
 }
 
 func (s *Server) writeResponse(w http.ResponseWriter, resp *http.Response, statusCode int, model string, convertSSE bool) {
