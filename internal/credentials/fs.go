@@ -24,6 +24,29 @@ func NewFSCredentialsFetcher(path string) *FSCredentialsFetcher {
 	return &FSCredentialsFetcher{Path: path}
 }
 
+func InitFromOAuth(path string, creds *OAuthCredentials) error {
+	if err := EnsureParentDir(path); err != nil {
+		return fmt.Errorf("failed to ensure parent directory: %w", err)
+	}
+
+	var auth fsAuth
+	auth.Tokens.AccessToken = creds.AccessToken
+	auth.Tokens.RefreshToken = creds.RefreshToken
+	auth.Tokens.ExpiresAt = creds.ExpiresAt
+	auth.Tokens.AccountID = creds.UserID
+
+	data, err := json.MarshalIndent(auth, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal credentials: %w", err)
+	}
+
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		return fmt.Errorf("failed to write credentials file: %w", err)
+	}
+
+	return nil
+}
+
 func (f *FSCredentialsFetcher) GetCredentials() (string, string, error) {
 	b, err := os.ReadFile(f.Path)
 	if err != nil {

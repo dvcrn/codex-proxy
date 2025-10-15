@@ -13,25 +13,81 @@ import (
 )
 
 func main() {
-	useKeychain := flag.Bool("use-keychain", false, "Extract credentials from macOS keychain")
-	useFS := flag.Bool("use-fs-creds", true, "Use filesystem credentials at /Users/david/.codex/auth.json")
-	fsPath := flag.String("fs-creds-path", "/Users/david/.codex/auth.json", "Path to filesystem credentials auth.json")
+	credsStore := flag.String("creds-store", "auto", "Credential store mode: auto|xdg|legacy|keychain|env")
+	credsPath := flag.String("creds-path", "", "Override path for filesystem credentials (for xdg/legacy modes)")
+	disableRefresh := flag.Bool("disable-migrate-refresh", false, "Skip immediate token refresh after migration")
 	flag.Parse()
 
 	log := logger.New()
 
+	log.Info().
+		Str("creds_store", *credsStore).
+		Str("creds_path", *credsPath).
+		Msg("🚀 Starting codex-proxy with credential configuration")
+
 	var credsFetcher credentials.CredentialsFetcher
-	if *useKeychain {
+	var fsPath string
+
+	switch *credsStore {
+	case "auto", "xdg":
+		fsPath = *credsPath
+		if fsPath == "" {
+			fsPath = credentials.DefaultCredsPath()
+			log.Info().
+				Str("xdg_config_path", fsPath).
+				Msg("📂 Using XDG config path for credentials")
+		} else {
+			log.Info().
+				Str("custom_path", fsPath).
+				Msg("📂 Using custom path for credentials")
+		}
+
+		if *credsStore == "auto" {
+			if err := maybeMigrateCredentials(fsPath, *disableRefresh, log); err != nil {
+				log.Error().
+					Err(err).
+					Str("target_path", fsPath).
+					Msg("❌ Migration failed, will attempt to use existing credentials if available")
+			}
+		}
+
+		fsFetcher := credentials.NewFSCredentialsFetcher(fsPath)
+		oauthFetcher := auth.NewOAuthFetcher(fsFetcher, &log)
+		credsFetcher = oauthFetcher
+
+		log.Info().
+			Str("path", fsPath).
+			Msg("📄 Using filesystem credentials fetcher with OAuth token refresh")
+
+	case "legacy":
+		fsPath = *credsPath
+		if fsPath == "" {
+			fsPath = credentials.LegacyCredsPath()
+			log.Info().
+				Str("legacy_path", fsPath).
+				Msg("📂 Using legacy credentials path")
+		}
+
+		fsFetcher := credentials.NewFSCredentialsFetcher(fsPath)
+		credsFetcher = auth.NewOAuthFetcher(fsFetcher, &log)
+
+		log.Info().
+			Str("path", fsPath).
+			Msg("📄 Using legacy filesystem credentials fetcher with OAuth token refresh")
+
+	case "keychain":
 		keychainFetcher := credentials.NewKeychainCredentialsFetcherWithLogger(log)
 		credsFetcher = auth.NewOAuthFetcher(keychainFetcher, &log)
 		log.Info().Msg("🔑 Using keychain credentials fetcher with OAuth token refresh")
-	} else if *useFS {
-		fsFetcher := credentials.NewFSCredentialsFetcher(*fsPath)
-		credsFetcher = auth.NewOAuthFetcher(fsFetcher, &log)
-		log.Info().Str("path", *fsPath).Msg("📄 Using filesystem credentials fetcher with OAuth token refresh")
-	} else {
+
+	case "env":
 		credsFetcher = credentials.NewEnvCredentialsFetcher()
 		log.Info().Msg("📝 Using environment credentials fetcher")
+
+	default:
+		log.Fatal().
+			Str("creds_store", *credsStore).
+			Msg("❌ Invalid creds-store mode. Valid options: auto|xdg|legacy|keychain|env")
 	}
 
 	// Validate credentials at startup
@@ -47,6 +103,131 @@ func main() {
 
 	log.Info().Str("port", port).Msg("Starting server")
 	log.Fatal().Err(http.ListenAndServe(":"+port, srv)).Msg("Server failed to start")
+}
+
+func maybeMigrateCredentials(targetPath string, disableRefresh bool, log zerolog.Logger) error {
+	log.Info().
+		Str("target_path", targetPath).
+		Msg("🔍 Checking if credentials migration is needed")
+
+	if credentials.FileExists(targetPath) {
+		log.Info().
+			Str("target_path", targetPath).
+			Msg("✅ Credentials already exist at target path, skipping migration")
+		return nil
+	}
+
+	log.Info().
+		Str("target_path", targetPath).
+		Msg("📦 Target credentials file not found, attempting migration")
+
+	legacyPath := credentials.LegacyCredsPath()
+	log.Info().
+		Str("legacy_path", legacyPath).
+		Msg("🔍 Checking for legacy credentials file")
+
+	var migratedCreds *credentials.OAuthCredentials
+	var sourceType string
+
+	if credentials.FileExists(legacyPath) {
+		log.Info().
+			Str("legacy_path", legacyPath).
+			Msg("📄 Found legacy credentials file, reading OAuth tokens")
+
+		fsFetcher := credentials.NewFSCredentialsFetcher(legacyPath)
+		creds, err := fsFetcher.GetFullCredentials()
+		if err != nil {
+			log.Error().
+				Err(err).
+				Str("legacy_path", legacyPath).
+				Msg("❌ Failed to read legacy credentials file")
+			return err
+		}
+
+		migratedCreds = creds
+		sourceType = "legacy file"
+
+		log.Info().
+			Str("user_id", creds.UserID).
+			Int64("expires_at", creds.ExpiresAt).
+			Str("source", sourceType).
+			Msg("✅ Successfully read credentials from legacy file")
+	} else {
+		log.Info().
+			Str("legacy_path", legacyPath).
+			Msg("⚠️  Legacy credentials file not found, trying keychain")
+
+		keychainCreds, err := credentials.ReadOAuthFromKeychain()
+		if err != nil {
+			log.Error().
+				Err(err).
+				Msg("❌ Failed to read credentials from keychain")
+			return err
+		}
+
+		migratedCreds = keychainCreds
+		sourceType = "keychain"
+
+		log.Info().
+			Str("user_id", keychainCreds.UserID).
+			Int64("expires_at", keychainCreds.ExpiresAt).
+			Str("source", sourceType).
+			Msg("✅ Successfully read credentials from keychain")
+	}
+
+	log.Info().
+		Str("target_path", targetPath).
+		Str("source", sourceType).
+		Msg("💾 Writing migrated credentials to target file")
+
+	if err := credentials.InitFromOAuth(targetPath, migratedCreds); err != nil {
+		log.Error().
+			Err(err).
+			Str("target_path", targetPath).
+			Msg("❌ Failed to write credentials to target file")
+		return err
+	}
+
+	info, err := os.Stat(targetPath)
+	if err == nil {
+		log.Info().
+			Str("target_path", targetPath).
+			Str("permissions", info.Mode().String()).
+			Int64("size_bytes", info.Size()).
+			Msg("✅ Credentials file created successfully")
+	}
+
+	if disableRefresh {
+		log.Info().Msg("⏭️  Skipping immediate token refresh (disabled by flag)")
+		return nil
+	}
+
+	log.Info().
+		Str("source", sourceType).
+		Msg("🔄 Performing immediate token refresh to establish independent token chain")
+
+	fsFetcher := credentials.NewFSCredentialsFetcher(targetPath)
+	oauthFetcher := auth.NewOAuthFetcher(fsFetcher, &log)
+
+	if err := oauthFetcher.RefreshCredentials(); err != nil {
+		log.Warn().
+			Err(err).
+			Msg("⚠️  Failed to refresh tokens after migration; will retry on first request")
+		return nil
+	}
+
+	log.Info().Msg("✅ Token refresh successful, independent token chain established")
+
+	refreshedCreds, err := fsFetcher.GetFullCredentials()
+	if err == nil {
+		now := auth.UnixMillis()
+		minutesUntilExpiry := (refreshedCreds.ExpiresAt - now) / 1000 / 60
+		log.Info().
+			Int64("minutes_until_expiry", minutesUntilExpiry).
+			Msg("🕐 New token expiry status")
+	}
+
+	return nil
 }
 
 func validateCredentialsAtStartup(credsFetcher credentials.CredentialsFetcher, log zerolog.Logger) {

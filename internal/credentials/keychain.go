@@ -149,6 +149,19 @@ func (k *KeychainCredentialsFetcher) Close() {
 	close(k.stopCh)
 }
 
+func ReadOAuthFromKeychain() (*OAuthCredentials, error) {
+	creds, err := getFullCredentials()
+	if err != nil {
+		return nil, err
+	}
+	return &OAuthCredentials{
+		AccessToken:  creds.AccessToken,
+		RefreshToken: creds.RefreshToken,
+		ExpiresAt:    creds.ExpiresAt,
+		UserID:       creds.UserID,
+	}, nil
+}
+
 // unexported functions, previously in internal/keychain
 func getCredentials() (apiKey, userID string, err error) {
 	cmd := exec.Command("security", "find-generic-password", "-s", "Claude Code-credentials", "-w")

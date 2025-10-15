@@ -4,19 +4,72 @@ Go proxy server that forwards OpenAI-compatible requests to the ChatGPT Codex Re
 
 ## Setup
 
-Credentials can be provided via the admin API (recommended) or environment variables.
+### Credentials Storage & Migration
 
-Environment variables (optional):
+The proxy now uses **independent credential storage** to avoid token collisions with the system Codex CLI.
+
+**Default behavior (`--creds-store=auto`)**:
+- Stores credentials in `~/.config/codex-proxy/auth.json` (XDG config directory)
+- On first launch, automatically migrates from:
+  1. Legacy file (`~/.codex/auth.json`) if it exists
+  2. System Keychain if no legacy file found
+- After migration, immediately refreshes tokens to establish an independent token chain
+- All subsequent token refreshes are stored in the new location
+
+**Credential store modes**:
+```bash
+# Auto migration (default) - uses XDG config directory
+./codex-proxy --creds-store=auto
+
+# Explicit XDG path
+./codex-proxy --creds-store=xdg
+
+# Custom path
+./codex-proxy --creds-store=xdg --creds-path=/custom/path/auth.json
+
+# Legacy mode (shares with system CLI)
+./codex-proxy --creds-store=legacy --creds-path=~/.codex/auth.json
+
+# Keychain mode (macOS only)
+./codex-proxy --creds-store=keychain
+
+# Environment variables mode
+./codex-proxy --creds-store=env
+```
+
+**Migration flags**:
+```bash
+# Skip immediate token refresh after migration (not recommended)
+./codex-proxy --disable-migrate-refresh
+```
+
+**Environment variables** (for `--creds-store=env` mode):
 ```bash
 export ACCESS_TOKEN="your-access-token"
 export ACCOUNT_ID="your-account-id"
 ```
 
-Optional server config:
+**Server config**:
 ```bash
-export PORT="3000"  # default: 8080
+export PORT="3000"  # default: 9879
 export ENV="production"  # default: development (console logs)
 ```
+
+**Migration logs**:
+The server provides detailed logging during migration:
+- `🔍` - Checking for existing credentials
+- `📄` - Reading from legacy file or keychain
+- `💾` - Writing credentials to new location
+- `🔄` - Performing token refresh
+- `✅` - Success indicators
+- `⚠️` - Warnings (e.g., refresh failures)
+- `❌` - Errors
+
+**Troubleshooting**:
+- If migration fails, the server will continue with existing credentials if available
+- Check logs for detailed error messages
+- Use `--creds-store=legacy` to temporarily revert to old behavior
+- Manually inspect `~/.config/codex-proxy/auth.json` for credential status
 
 ## Usage
 
