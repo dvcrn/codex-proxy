@@ -253,3 +253,81 @@ func TestRewriteSSEStream_ReasoningMarkdownHeaders(t *testing.T) {
 		t.Fatalf("missing third reasoning delta: %q", out)
 	}
 }
+
+func TestRewriteSSEStream_ReasoningHeaders_NoInjectOnPartialBold(t *testing.T) {
+	// Test that partial bold tokens don't trigger newline injection
+	// This simulates upstream splitting "**Analyzing user request**" across deltas
+	src := strings.Join([]string{
+		"data: {\"type\":\"response.created\",\"sequence_number\":1,\"response\":{\"id\":\"resp_partial\"}}",
+		"",
+		`data: {"type":"response.reasoning.delta","sequence_number":2,"output_index":0,"delta":"**Analyzing user request"}`,
+		"",
+		`data: {"type":"response.reasoning.delta","sequence_number":3,"output_index":0,"delta":"**"}`,
+		"",
+		`data: {"type":"response.reasoning.delta","sequence_number":4,"output_index":0,"delta":" continues here"}`,
+		"",
+		"data: {\"type\":\"response.completed\",\"sequence_number\":5}",
+		"",
+		"data: [DONE]",
+		"",
+	}, "\n")
+
+	var dst bytes.Buffer
+	if err := RewriteSSEStream(strings.NewReader(src), &dst, "gpt-5"); err != nil {
+		t.Fatalf("rewrite failed: %v", err)
+	}
+	out := dst.String()
+
+	// Should NOT inject newlines before the opening "**Analyzing user request" (no closing **)
+	if strings.Contains(out, "\"reasoning_content\":\"\\n\\n**Analyzing user request\"") {
+		t.Fatalf("should not inject newlines before partial bold opening: %q", out)
+	}
+
+	// Should include the partial opening as-is
+	if !strings.Contains(out, "\"reasoning_content\":\"**Analyzing user request\"") {
+		t.Fatalf("missing partial bold opening: %q", out)
+	}
+
+	// Should NOT inject newlines before the closing "**" fragment
+	if strings.Contains(out, "\"reasoning_content\":\"\\n\\n**\"") {
+		t.Fatalf("should not inject newlines before partial bold closing: %q", out)
+	}
+
+	// Should include the closing fragment as-is
+	if !strings.Contains(out, "\"reasoning_content\":\"**\"") {
+		t.Fatalf("missing partial bold closing: %q", out)
+	}
+}
+
+func TestRewriteSSEStream_ReasoningHeaders_NoDoubleNewline(t *testing.T) {
+	// Test that we don't add extra newlines when delta already starts with newline
+	src := strings.Join([]string{
+		"data: {\"type\":\"response.created\",\"sequence_number\":1,\"response\":{\"id\":\"resp_double\"}}",
+		"",
+		`data: {"type":"response.reasoning.delta","sequence_number":2,"output_index":0,"delta":"Some text"}`,
+		"",
+		`data: {"type":"response.reasoning.delta","sequence_number":3,"output_index":0,"delta":"\n**Header**"}`,
+		"",
+		"data: {\"type\":\"response.completed\",\"sequence_number\":4}",
+		"",
+		"data: [DONE]",
+		"",
+	}, "\n")
+
+	var dst bytes.Buffer
+	if err := RewriteSSEStream(strings.NewReader(src), &dst, "gpt-5"); err != nil {
+		t.Fatalf("rewrite failed: %v", err)
+	}
+	out := dst.String()
+
+	// Should NOT add extra newlines (delta already starts with \n)
+	// The delta "\n**Header**" should remain as-is, not become "\n\n\n**Header**"
+	if strings.Contains(out, "\"reasoning_content\":\"\\n\\n\\n**Header**\"") {
+		t.Fatalf("should not add extra newlines when delta already has newline: %q", out)
+	}
+
+	// Should preserve the original delta
+	if !strings.Contains(out, "\"reasoning_content\":\"\\n**Header**\"") {
+		t.Fatalf("should preserve original delta with single newline: %q", out)
+	}
+}

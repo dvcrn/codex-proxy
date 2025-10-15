@@ -1003,15 +1003,21 @@ func (t *SSETransformer) Transform(dataLine []byte) (out []byte, done bool, err 
 
 // fixReasoningMarkdownHeaders ensures bold markdown headers in reasoning content
 // have proper newlines before them for correct rendering (e.g., **Foo** -> \n\n**Foo**)
+// Only injects newlines for complete bold headers within a single delta to avoid breaking
+// formatting when upstream splits tokens across deltas.
 func fixReasoningMarkdownHeaders(text string) string {
 	if text == "" {
 		return text
 	}
-	// Only transform if this delta starts with bold markdown and isn't already preceded by newlines
-	// This handles cases like: "text**Header**" -> "text\n\n**Header**"
+	// Only inject newlines if this delta contains a complete bold header: starts with **
+	// and contains a closing ** later in the same string. Ignore partials like "**" or "**Header"
+	// to avoid adding newlines when upstream splits tokens across multiple deltas.
 	if len(text) >= 4 && text[0] == '*' && text[1] == '*' {
-		// Delta starts with **, prepend newlines to ensure it renders on its own line
-		return "\n\n" + text
+		// Look for closing ** after the opening pair
+		if strings.Contains(text[2:], "**") {
+			// Complete header found, prepend newlines to ensure it renders on its own line
+			return "\n\n" + text
+		}
 	}
 	return text
 }
