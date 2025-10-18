@@ -9,3 +9,4 @@ captured_logs/
 .gocache
 ./codex-proxy
 /codex-proxy
+com.codex-proxy.plist
