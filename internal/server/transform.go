@@ -11,8 +11,6 @@ import (
 	"strings"
 )
 
-// NOTE: Old Claude model constants removed; we hardcode model to gpt-5 upstream.
-
 var namesToReplace = []string{"Zed", "Cline", "Roo", "GitHub Copilot", "Copilot", "Cursor", "Microsoft", "Copilot"}
 
 func replaceNames(input string) string {
@@ -301,9 +299,29 @@ func normalizeModel(model string) string {
 			break
 		}
 	}
-	if strings.Contains(lower, "codex") {
+	if lower == "" {
+		return modelGPT5
+	}
+
+	// Prefer explicit new model IDs first to keep mapping predictable.
+	if strings.Contains(lower, "gpt-5.1-codex-mini") {
+		return modelGPT51CodexMini
+	}
+	if strings.Contains(lower, "gpt-5.1-codex") {
+		return modelGPT51Codex
+	}
+	if strings.Contains(lower, "gpt-5.1") {
+		return modelGPT51
+	}
+
+	if strings.Contains(lower, "gpt-5-codex-mini") {
+		return modelGPT5CodexMini
+	}
+	if strings.Contains(lower, "gpt-5-codex") || strings.Contains(lower, "codex") {
 		return modelGPT5Codex
 	}
+
+	// Fallback: any other 5-series model collapses to gpt-5.
 	return modelGPT5
 }
 
@@ -364,15 +382,47 @@ func resolveReasoningSummary(requestData map[string]interface{}) interface{} {
 func buildReasoningSettings(requestData map[string]interface{}) map[string]interface{} {
 	requestedEffort := resolveReasoningEffort(requestData)
 	normalizedEffort := normalizeReasoningEffort(requestedEffort)
+	backendModel := normalizeModel(resolveRequestModel(requestData))
+	clampedEffort := clampReasoningEffortForModel(normalizedEffort, backendModel)
 	summary := resolveReasoningSummary(requestData)
 	settings := map[string]interface{}{}
-	if normalizedEffort != "" {
-		settings["effort"] = normalizedEffort
+	if clampedEffort != "" {
+		settings["effort"] = clampedEffort
 	}
 	if summary != nil {
 		settings["summary"] = summary
 	}
 	return settings
+}
+
+// clampReasoningEffortForModel enforces per-model reasoning effort limits and
+// applies model-specific defaults when no explicit effort is provided.
+func clampReasoningEffortForModel(effort, backendModel string) string {
+	effort = strings.TrimSpace(effort)
+	backendModel = strings.TrimSpace(backendModel)
+
+	// If nothing specified, fall back to a model default (if any).
+	if effort == "" {
+		if def, ok := modelDefaultEffort[backendModel]; ok {
+			return def
+		}
+		return ""
+	}
+
+	allowed, ok := modelAllowedEfforts[backendModel]
+	if !ok || len(allowed) == 0 {
+		return effort
+	}
+	for _, a := range allowed {
+		if effort == a {
+			return effort
+		}
+	}
+
+	if def, ok := modelDefaultEffort[backendModel]; ok && def != "" {
+		return def
+	}
+	return effort
 }
 
 func derivePromptCacheKey(model, instructions, firstUserText string) string {

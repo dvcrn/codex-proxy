@@ -1,9 +1,34 @@
 package server
 
 const (
-	modelGPT5      = "gpt-5"
-	modelGPT5Codex = "gpt-5-codex"
+	modelGPT5           = "gpt-5"
+	modelGPT5Codex      = "gpt-5-codex"
+	modelGPT51          = "gpt-5.1"
+	modelGPT51Codex     = "gpt-5.1-codex"
+	modelGPT5CodexMini  = "gpt-5-codex-mini"
+	modelGPT51CodexMini = "gpt-5.1-codex-mini"
 )
+
+// modelAllowedEfforts defines which reasoning effort levels are valid for each
+// canonical backend model. Keys are canonical model IDs used in upstream
+// requests (after normalization).
+var modelAllowedEfforts = map[string][]string{
+	modelGPT5:           {"minimal", "low", "medium", "high"},
+	modelGPT5Codex:      {"minimal", "low", "medium", "high"},
+	modelGPT51:          {"low", "medium", "high"},
+	modelGPT51Codex:     {"low", "medium", "high"},
+	modelGPT5CodexMini:  {"medium", "high"},
+	modelGPT51CodexMini: {"medium", "high"},
+}
+
+// modelDefaultEffort defines the default reasoning effort to apply when the
+// user does not explicitly specify an effort for the given model.
+var modelDefaultEffort = map[string]string{
+	modelGPT51:          "low",
+	modelGPT51Codex:     "low",
+	modelGPT5CodexMini:  "medium",
+	modelGPT51CodexMini: "medium",
+}
 
 // modelMetadata mirrors the JSON schema required by the OpenAI-compatible
 // /v1/models endpoint. The structure intentionally keeps nested fields as
@@ -97,15 +122,164 @@ var modelMetadataByID = map[string]modelMetadata{
 		Vendor:             "OpenAI",
 		Version:            "gpt-5-codex",
 	},
+	modelGPT51: {
+		Capabilities: map[string]interface{}{
+			"family": "gpt-5.1",
+			"limits": map[string]interface{}{
+				"max_context_window_tokens": 264000,
+				"max_output_tokens":         64000,
+				"max_prompt_tokens":         128000,
+				"vision": map[string]interface{}{
+					"max_prompt_image_size": 3145728,
+					"max_prompt_images":     1,
+					"supported_media_types": []string{"image/jpeg", "image/png", "image/webp", "image/gif"},
+				},
+			},
+			"object":    "model_capabilities",
+			"supports":  map[string]interface{}{"parallel_tool_calls": true, "streaming": true, "structured_outputs": true, "tool_calls": true, "vision": true},
+			"tokenizer": "o200k_base",
+			"type":      "chat",
+		},
+		ID:                  modelGPT51,
+		ModelPickerCategory: "versatile",
+		ModelPickerEnabled:  true,
+		Name:                "GPT-5.1",
+		Object:              "model",
+		Policy: &modelPolicy{
+			State: "enabled",
+			Terms: "Enable access to GPT-5.1 from OpenAI. [Learn more about how GitHub Copilot serves GPT-5.1](https://gh.io/copilot-openai).",
+		},
+		Preview: false,
+		Vendor:  "Azure OpenAI",
+		Version: "gpt-5.1",
+	},
+	modelGPT51Codex: {
+		Capabilities: map[string]interface{}{
+			"family": "gpt-5.1-codex",
+			"limits": map[string]interface{}{
+				"max_context_window_tokens": 200000,
+				"max_output_tokens":         64000,
+				"max_prompt_tokens":         128000,
+				"vision": map[string]interface{}{
+					"max_prompt_image_size": 3145728,
+					"max_prompt_images":     1,
+					"supported_media_types": []string{"image/jpeg", "image/png", "image/webp", "image/gif"},
+				},
+			},
+			"object":    "model_capabilities",
+			"supports":  map[string]interface{}{"parallel_tool_calls": true, "streaming": true, "structured_outputs": true, "tool_calls": true, "vision": true},
+			"tokenizer": "o200k_base",
+			"type":      "chat",
+		},
+		ID:                  modelGPT51Codex,
+		ModelPickerCategory: "powerful",
+		ModelPickerEnabled:  true,
+		Name:                "GPT-5.1-Codex (Preview)",
+		Object:              "model",
+		Policy: &modelPolicy{
+			State: "enabled",
+			Terms: "Enable access to GPT-5.1-Codex from OpenAI. [Learn more about how GitHub Copilot serves GPT-5.1-Codex](https://gh.io/copilot-openai).",
+		},
+		Preview:            true,
+		SupportedEndpoints: []string{"/responses"},
+		Vendor:             "OpenAI",
+		Version:            "gpt-5.1-codex",
+	},
+	modelGPT5CodexMini: {
+		Capabilities: map[string]interface{}{
+			"family": "gpt-5-codex-mini",
+			"limits": map[string]interface{}{
+				"max_context_window_tokens": 128000,
+				"max_output_tokens":         32000,
+				"max_prompt_tokens":         64000,
+				"vision": map[string]interface{}{
+					"max_prompt_image_size": 3145728,
+					"max_prompt_images":     1,
+					"supported_media_types": []string{"image/jpeg", "image/png", "image/webp", "image/gif"},
+				},
+			},
+			"object":    "model_capabilities",
+			"supports":  map[string]interface{}{"parallel_tool_calls": true, "streaming": true, "structured_outputs": true, "tool_calls": true, "vision": true},
+			"tokenizer": "o200k_base",
+			"type":      "chat",
+		},
+		ID:                  modelGPT5CodexMini,
+		ModelPickerCategory: "fast",
+		ModelPickerEnabled:  true,
+		Name:                "GPT-5-Codex Mini (Preview)",
+		Object:              "model",
+		Policy: &modelPolicy{
+			State: "enabled",
+			Terms: "Enable access to GPT-5-Codex Mini from OpenAI. [Learn more about how GitHub Copilot serves GPT-5-Codex Mini](https://gh.io/copilot-openai).",
+		},
+		Preview:            true,
+		SupportedEndpoints: []string{"/responses"},
+		Vendor:             "OpenAI",
+		Version:            "gpt-5-codex-mini",
+	},
+	modelGPT51CodexMini: {
+		Capabilities: map[string]interface{}{
+			"family": "gpt-5.1-codex-mini",
+			"limits": map[string]interface{}{
+				"max_context_window_tokens": 128000,
+				"max_output_tokens":         32000,
+				"max_prompt_tokens":         64000,
+				"vision": map[string]interface{}{
+					"max_prompt_image_size": 3145728,
+					"max_prompt_images":     1,
+					"supported_media_types": []string{"image/jpeg", "image/png", "image/webp", "image/gif"},
+				},
+			},
+			"object":    "model_capabilities",
+			"supports":  map[string]interface{}{"parallel_tool_calls": true, "streaming": true, "structured_outputs": true, "tool_calls": true, "vision": true},
+			"tokenizer": "o200k_base",
+			"type":      "chat",
+		},
+		ID:                  modelGPT51CodexMini,
+		ModelPickerCategory: "fast",
+		ModelPickerEnabled:  true,
+		Name:                "GPT-5.1-Codex Mini (Preview)",
+		Object:              "model",
+		Policy: &modelPolicy{
+			State: "enabled",
+			Terms: "Enable access to GPT-5.1-Codex Mini from OpenAI. [Learn more about how GitHub Copilot serves GPT-5.1-Codex Mini](https://gh.io/copilot-openai).",
+		},
+		Preview:            true,
+		SupportedEndpoints: []string{"/responses"},
+		Vendor:             "OpenAI",
+		Version:            "gpt-5.1-codex-mini",
+	},
 }
 
-var supportedModelIDs = []string{modelGPT5, modelGPT5Codex}
+var supportedModelIDs = []string{
+	modelGPT5,
+	modelGPT5Codex,
+	modelGPT51,
+	modelGPT51Codex,
+	modelGPT5CodexMini,
+	modelGPT51CodexMini,
+}
 
 func supportedModels() []modelMetadata {
 	models := make([]modelMetadata, 0, len(supportedModelIDs))
 	for _, id := range supportedModelIDs {
-		if m, ok := modelMetadataByID[id]; ok {
-			models = append(models, m)
+		base, ok := modelMetadataByID[id]
+		if !ok {
+			continue
+		}
+		// Always include the base model
+		models = append(models, base)
+
+		// Also expose reasoning-effort suffix variants (e.g., gpt-5-high) so
+		// clients that encode effort in the model name can discover them from
+		// /v1/models.
+		if efforts, ok := modelAllowedEfforts[id]; ok {
+			for _, effort := range efforts {
+				variant := base
+				variant.ID = id + "-" + effort
+				variant.Name = base.Name + " (" + effort + " reasoning)"
+				models = append(models, variant)
+			}
 		}
 	}
 	return models

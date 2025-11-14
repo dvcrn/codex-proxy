@@ -85,6 +85,87 @@ just test   # Run tests
 - `POST /v1/responses` - OpenAI Responses-compatible endpoint (Codex)
 - `GET /health` - Health check
 
+## Models and Reasoning Mappings
+
+The proxy exposes a small, opinionated set of models and maps many user-facing
+model strings onto canonical backend models.
+
+### Supported base models
+
+The `/v1/models` endpoint returns metadata for these base models:
+
+- `gpt-5`
+- `gpt-5-codex`
+- `gpt-5.1`
+- `gpt-5.1-codex`
+- `gpt-5-codex-mini`
+- `gpt-5.1-codex-mini`
+
+Each base model is also exposed with reasoning-effort suffix variants, e.g.:
+
+- `gpt-5-high`, `gpt-5-medium`, `gpt-5-low`, `gpt-5-minimal`
+- `gpt-5.1-high`, `gpt-5.1-medium`, `gpt-5.1-low`
+- `gpt-5-codex-mini-medium`, `gpt-5-codex-mini-high`
+
+These suffix forms are discoverable via `/v1/models` for clients that encode
+reasoning effort in the `model` name.
+
+### Model normalization rules
+
+Incoming requests may use model names with additional decorations. The proxy
+normalizes them to canonical backend models before forwarding upstream:
+
+- Any trailing `-high`, `-medium`, `-low`, or `-minimal` suffix is treated as
+  a reasoning-effort hint and stripped from the model name before normalization.
+- Explicit new models are preserved:
+  - `gpt-5.1*` → `gpt-5.1`, `gpt-5.1-codex`, or `gpt-5.1-codex-mini` depending on the prefix.
+  - `gpt-5-codex-mini*` → `gpt-5-codex-mini`.
+- For legacy and loose names:
+  - Any model containing `"codex"` (e.g. `gpt-5-mini-codex-preview`) maps to the
+    canonical `gpt-5-codex` model.
+  - Other GPT‑5-series names (e.g. `gpt-5-mini`) collapse to `gpt-5`.
+
+The normalized backend model is what is sent to the upstream `/backend-api/codex/responses`
+endpoint and is also used when rewriting streaming responses.
+
+### Reasoning effort and suffix behavior
+
+Reasoning effort can be provided in three ways:
+
+- `reasoning_effort` top-level string field
+- `reasoning.effort` nested field
+- A `-high`, `-medium`, `-low`, or `-minimal` suffix on the `model` name
+  (for clients that cannot set a separate reasoning field)
+
+The proxy combines these inputs as follows:
+
+- It first resolves an effort value from `reasoning_effort`, then `reasoning.effort`,
+  and finally from any `-<effort>` suffix on the `model` string.
+- The value is normalized to one of: `minimal`, `low`, `medium`, `high`
+  (`none` is treated as `low`).
+- The effort is then **clamped per model** to enforce allowed ranges:
+  - `gpt-5`, `gpt-5-codex`:
+    - Allowed: `minimal`, `low`, `medium`, `high`
+    - No default; if not specified, the proxy omits `reasoning.effort` and lets
+      upstream decide.
+  - `gpt-5.1`, `gpt-5.1-codex`:
+    - Allowed: `low`, `medium`, `high`
+    - `minimal` is coerced to `low`.
+    - Default when unspecified: `low`.
+  - `gpt-5-codex-mini`, `gpt-5.1-codex-mini`:
+    - Allowed: `medium`, `high`
+    - `low`/`minimal`/`none` are coerced to `medium`.
+    - Default when unspecified: `medium`.
+
+This means suffix-only clients like:
+
+- `model: "gpt-5.1-high"`
+- `model: "gpt-5-codex-mini-low"`
+
+will transparently be mapped to the appropriate canonical backend model with a
+compatible reasoning effort (`gpt-5.1` + `high`, `gpt-5-codex-mini` + `medium`,
+respectively), even if they do not send `reasoning_effort` explicitly.
+
 ## Example
 
 ```bash

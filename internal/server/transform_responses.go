@@ -83,13 +83,14 @@ func transformResponsesRequestBody(body map[string]interface{}, requestedModel s
 	}
 
 	normalizedEffort := normalizeReasoningEffort(requestedEffort)
+	clampedEffort := clampReasoningEffortForModel(normalizedEffort, normalizedModel)
 	summary := resolveReasoningSummary(body)
 	reasoningSettings := map[string]interface{}{}
 	if summary != nil {
 		reasoningSettings["summary"] = summary
 	}
-	if normalizedEffort != "" {
-		reasoningSettings["effort"] = normalizedEffort
+	if clampedEffort != "" {
+		reasoningSettings["effort"] = clampedEffort
 	}
 	if len(reasoningSettings) > 0 {
 		body["reasoning"] = reasoningSettings
@@ -107,7 +108,7 @@ func transformResponsesRequestBody(body map[string]interface{}, requestedModel s
 		}
 	}
 
-	return normalizedModel, normalizedEffort
+	return normalizedModel, clampedEffort
 }
 
 func sanitizeResponsesInput(body map[string]interface{}) {

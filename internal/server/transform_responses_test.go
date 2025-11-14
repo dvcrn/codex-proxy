@@ -104,3 +104,53 @@ func TestTransformResponsesRequestBody(t *testing.T) {
 func containsSubstring(s, substr string) bool {
 	return strings.Contains(s, substr)
 }
+
+func TestTransformResponsesRequestBody_ModelSpecificReasoningClamp(t *testing.T) {
+	// Mini codex should clamp low effort to medium and default to medium when
+	// no explicit effort is provided.
+	baseBody := func() map[string]interface{} {
+		return map[string]interface{}{
+			"instructions": "Do something.",
+			"input": []interface{}{
+				map[string]interface{}{
+					"role": "user",
+					"content": []interface{}{
+						map[string]interface{}{
+							"type": "input_text",
+							"text": "Hello",
+						},
+					},
+				},
+			},
+		}
+	}
+
+	// Case 1: explicit low effort gets clamped to medium
+	body1 := baseBody()
+	requestedEffort1 := "low"
+	nModel1, nEffort1 := transformResponsesRequestBody(body1, "gpt-5.1-codex-mini", requestedEffort1)
+	if nModel1 != "gpt-5.1-codex-mini" {
+		t.Fatalf("expected normalized model gpt-5.1-codex-mini, got %q", nModel1)
+	}
+	if nEffort1 != "medium" {
+		t.Fatalf("expected normalized effort medium, got %q", nEffort1)
+	}
+	reasoning1, ok := body1["reasoning"].(map[string]interface{})
+	if !ok || reasoning1["effort"] != "medium" {
+		t.Fatalf("expected reasoning effort medium in body, got %v", body1["reasoning"])
+	}
+
+	// Case 2: no effort provided defaults to model-specific default (medium)
+	body2 := baseBody()
+	nModel2, nEffort2 := transformResponsesRequestBody(body2, "gpt-5.1-codex-mini", "")
+	if nModel2 != "gpt-5.1-codex-mini" {
+		t.Fatalf("expected normalized model gpt-5.1-codex-mini, got %q", nModel2)
+	}
+	if nEffort2 != "medium" {
+		t.Fatalf("expected normalized effort medium, got %q", nEffort2)
+	}
+	reasoning2, ok := body2["reasoning"].(map[string]interface{})
+	if !ok || reasoning2["effort"] != "medium" {
+		t.Fatalf("expected reasoning effort medium in body, got %v", body2["reasoning"])
+	}
+}

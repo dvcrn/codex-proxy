@@ -144,6 +144,13 @@ func TestNormalizeModel(t *testing.T) {
 		{"codex inside name", "gpt-5-mini-codex-preview", "gpt-5-codex"},
 		{"non codex", "gpt-5-mini", "gpt-5"},
 		{"empty", "", "gpt-5"},
+		{"gpt-5.1 base", "gpt-5.1", "gpt-5.1"},
+		{"gpt-5.1 with suffix", "gpt-5.1-high", "gpt-5.1"},
+		{"gpt-5.1 codex", "gpt-5.1-codex", "gpt-5.1-codex"},
+		{"gpt-5.1 codex mini", "gpt-5.1-codex-mini", "gpt-5.1-codex-mini"},
+		{"gpt-5.1 codex mini with suffix", "gpt-5.1-codex-mini-high", "gpt-5.1-codex-mini"},
+		{"gpt-5 codex mini", "gpt-5-codex-mini", "gpt-5-codex-mini"},
+		{"gpt-5 codex mini with suffix", "gpt-5-codex-mini-low", "gpt-5-codex-mini"},
 	}
 
 	for _, tc := range testCases {
@@ -172,6 +179,29 @@ func TestNormalizeReasoningEffort(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			assert.Equal(t, tc.expected, normalizeReasoningEffort(tc.input))
+		})
+	}
+}
+
+func TestClampReasoningEffortForModel(t *testing.T) {
+	tests := []struct {
+		name        string
+		model       string
+		inputEffort string
+		expected    string
+	}{
+		{"gpt-5 allows minimal", modelGPT5, "minimal", "minimal"},
+		{"gpt-5.1 disallows minimal -> low", modelGPT51, "minimal", "low"},
+		{"gpt-5.1 default when empty -> low", modelGPT51, "", "low"},
+		{"gpt-5-codex-mini clamps low -> medium", modelGPT5CodexMini, "low", "medium"},
+		{"gpt-5-codex-mini default when empty -> medium", modelGPT5CodexMini, "", "medium"},
+		{"gpt-5.1-codex-high allowed", modelGPT51Codex, "high", "high"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := clampReasoningEffortForModel(normalizeReasoningEffort(tc.inputEffort), tc.model)
+			assert.Equal(t, tc.expected, actual)
 		})
 	}
 }
