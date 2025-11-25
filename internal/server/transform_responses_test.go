@@ -153,4 +153,32 @@ func TestTransformResponsesRequestBody_ModelSpecificReasoningClamp(t *testing.T)
 	if !ok || reasoning2["effort"] != "medium" {
 		t.Fatalf("expected reasoning effort medium in body, got %v", body2["reasoning"])
 	}
+
+	// Case 3: gpt-5.1-codex-max preserves xhigh and defaults to low when unspecified
+	body3 := baseBody()
+	requestedEffort3 := "xhigh"
+	nModel3, nEffort3 := transformResponsesRequestBody(body3, "gpt-5.1-codex-max", requestedEffort3)
+	if nModel3 != "gpt-5.1-codex-max" {
+		t.Fatalf("expected normalized model gpt-5.1-codex-max, got %q", nModel3)
+	}
+	if nEffort3 != "xhigh" {
+		t.Fatalf("expected normalized effort xhigh, got %q", nEffort3)
+	}
+	reasoning3, ok := body3["reasoning"].(map[string]interface{})
+	if !ok || reasoning3["effort"] != "xhigh" {
+		t.Fatalf("expected reasoning effort xhigh in body, got %v", body3["reasoning"])
+	}
+
+	body4 := baseBody()
+	nModel4, nEffort4 := transformResponsesRequestBody(body4, "gpt-5.1-codex-max", "")
+	if nModel4 != "gpt-5.1-codex-max" {
+		t.Fatalf("expected normalized model gpt-5.1-codex-max, got %q", nModel4)
+	}
+	if nEffort4 != "low" {
+		t.Fatalf("expected normalized effort low when unspecified, got %q", nEffort4)
+	}
+	reasoning4, ok := body4["reasoning"].(map[string]interface{})
+	if !ok || reasoning4["effort"] != "low" {
+		t.Fatalf("expected reasoning effort low in body, got %v", body4["reasoning"])
+	}
 }

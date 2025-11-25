@@ -293,7 +293,7 @@ func resolveRequestModel(requestData map[string]interface{}) string {
 
 func normalizeModel(model string) string {
 	lower := strings.ToLower(strings.TrimSpace(model))
-	for _, effort := range []string{"-high", "-medium", "-low", "-minimal"} {
+	for _, effort := range []string{"-xhigh", "-high", "-medium", "-low", "-minimal"} {
 		if strings.HasSuffix(lower, effort) {
 			lower = strings.TrimSuffix(lower, effort)
 			break
@@ -304,6 +304,9 @@ func normalizeModel(model string) string {
 	}
 
 	// Prefer explicit new model IDs first to keep mapping predictable.
+	if strings.Contains(lower, "gpt-5.1-codex-max") {
+		return modelGPT51CodexMax
+	}
 	if strings.Contains(lower, "gpt-5.1-codex-mini") {
 		return modelGPT51CodexMini
 	}
@@ -335,6 +338,8 @@ func normalizeReasoningEffort(effort string) string {
 		return "medium"
 	case "high":
 		return "high"
+	case "xhigh":
+		return "xhigh"
 	case "none":
 		return "low"
 	default:
@@ -360,7 +365,7 @@ func resolveReasoningEffort(requestData map[string]interface{}) string {
 
 	if model, ok := requestData["model"].(string); ok {
 		lowerModel := strings.ToLower(strings.TrimSpace(model))
-		for _, effort := range []string{"high", "medium", "low", "minimal"} {
+		for _, effort := range []string{"xhigh", "high", "medium", "low", "minimal"} {
 			if strings.HasSuffix(lowerModel, "-"+effort) {
 				return effort
 			}

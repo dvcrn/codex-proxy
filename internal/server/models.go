@@ -5,6 +5,7 @@ const (
 	modelGPT5Codex      = "gpt-5-codex"
 	modelGPT51          = "gpt-5.1"
 	modelGPT51Codex     = "gpt-5.1-codex"
+	modelGPT51CodexMax  = "gpt-5.1-codex-max"
 	modelGPT5CodexMini  = "gpt-5-codex-mini"
 	modelGPT51CodexMini = "gpt-5.1-codex-mini"
 )
@@ -17,6 +18,7 @@ var modelAllowedEfforts = map[string][]string{
 	modelGPT5Codex:      {"minimal", "low", "medium", "high"},
 	modelGPT51:          {"low", "medium", "high"},
 	modelGPT51Codex:     {"low", "medium", "high"},
+	modelGPT51CodexMax:  {"low", "medium", "high", "xhigh"},
 	modelGPT5CodexMini:  {"medium", "high"},
 	modelGPT51CodexMini: {"medium", "high"},
 }
@@ -26,6 +28,7 @@ var modelAllowedEfforts = map[string][]string{
 var modelDefaultEffort = map[string]string{
 	modelGPT51:          "low",
 	modelGPT51Codex:     "low",
+	modelGPT51CodexMax:  "low",
 	modelGPT5CodexMini:  "medium",
 	modelGPT51CodexMini: "medium",
 }
@@ -185,6 +188,38 @@ var modelMetadataByID = map[string]modelMetadata{
 		Vendor:             "OpenAI",
 		Version:            "gpt-5.1-codex",
 	},
+	modelGPT51CodexMax: {
+		Capabilities: map[string]interface{}{
+			"family": "gpt-5.1-codex-max",
+			"limits": map[string]interface{}{
+				"max_context_window_tokens": 200000,
+				"max_output_tokens":         64000,
+				"max_prompt_tokens":         128000,
+				"vision": map[string]interface{}{
+					"max_prompt_image_size": 3145728,
+					"max_prompt_images":     1,
+					"supported_media_types": []string{"image/jpeg", "image/png", "image/webp", "image/gif"},
+				},
+			},
+			"object":    "model_capabilities",
+			"supports":  map[string]interface{}{"parallel_tool_calls": true, "streaming": true, "structured_outputs": true, "tool_calls": true, "vision": true},
+			"tokenizer": "o200k_base",
+			"type":      "chat",
+		},
+		ID:                  modelGPT51CodexMax,
+		ModelPickerCategory: "powerful",
+		ModelPickerEnabled:  true,
+		Name:                "GPT-5.1-Codex Max (Preview)",
+		Object:              "model",
+		Policy: &modelPolicy{
+			State: "enabled",
+			Terms: "Enable access to GPT-5.1-Codex Max from OpenAI. [Learn more about how GitHub Copilot serves GPT-5.1-Codex Max](https://gh.io/copilot-openai).",
+		},
+		Preview:            true,
+		SupportedEndpoints: []string{"/responses"},
+		Vendor:             "OpenAI",
+		Version:            "gpt-5.1-codex-max",
+	},
 	modelGPT5CodexMini: {
 		Capabilities: map[string]interface{}{
 			"family": "gpt-5-codex-mini",
@@ -256,6 +291,7 @@ var supportedModelIDs = []string{
 	modelGPT5Codex,
 	modelGPT51,
 	modelGPT51Codex,
+	modelGPT51CodexMax,
 	modelGPT5CodexMini,
 	modelGPT51CodexMini,
 }

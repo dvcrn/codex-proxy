@@ -98,6 +98,7 @@ The `/v1/models` endpoint returns metadata for these base models:
 - `gpt-5-codex`
 - `gpt-5.1`
 - `gpt-5.1-codex`
+- `gpt-5.1-codex-max`
 - `gpt-5-codex-mini`
 - `gpt-5.1-codex-mini`
 
@@ -105,6 +106,7 @@ Each base model is also exposed with reasoning-effort suffix variants, e.g.:
 
 - `gpt-5-high`, `gpt-5-medium`, `gpt-5-low`, `gpt-5-minimal`
 - `gpt-5.1-high`, `gpt-5.1-medium`, `gpt-5.1-low`
+- `gpt-5.1-codex-max-low`, `gpt-5.1-codex-max-high`, `gpt-5.1-codex-max-xhigh`
 - `gpt-5-codex-mini-medium`, `gpt-5-codex-mini-high`
 
 These suffix forms are discoverable via `/v1/models` for clients that encode
@@ -115,10 +117,10 @@ reasoning effort in the `model` name.
 Incoming requests may use model names with additional decorations. The proxy
 normalizes them to canonical backend models before forwarding upstream:
 
-- Any trailing `-high`, `-medium`, `-low`, or `-minimal` suffix is treated as
+- Any trailing `-xhigh`, `-high`, `-medium`, `-low`, or `-minimal` suffix is treated as
   a reasoning-effort hint and stripped from the model name before normalization.
 - Explicit new models are preserved:
-  - `gpt-5.1*` → `gpt-5.1`, `gpt-5.1-codex`, or `gpt-5.1-codex-mini` depending on the prefix.
+  - `gpt-5.1*` → `gpt-5.1`, `gpt-5.1-codex`, `gpt-5.1-codex-max`, or `gpt-5.1-codex-mini` depending on the prefix.
   - `gpt-5-codex-mini*` → `gpt-5-codex-mini`.
 - For legacy and loose names:
   - Any model containing `"codex"` (e.g. `gpt-5-mini-codex-preview`) maps to the
@@ -134,14 +136,14 @@ Reasoning effort can be provided in three ways:
 
 - `reasoning_effort` top-level string field
 - `reasoning.effort` nested field
-- A `-high`, `-medium`, `-low`, or `-minimal` suffix on the `model` name
+- A `-high`, `-medium`, `-low`, `-xhigh`, or `-minimal` suffix on the `model` name
   (for clients that cannot set a separate reasoning field)
 
 The proxy combines these inputs as follows:
 
 - It first resolves an effort value from `reasoning_effort`, then `reasoning.effort`,
   and finally from any `-<effort>` suffix on the `model` string.
-- The value is normalized to one of: `minimal`, `low`, `medium`, `high`
+- The value is normalized to one of: `minimal`, `low`, `medium`, `high`, `xhigh`
   (`none` is treated as `low`).
 - The effort is then **clamped per model** to enforce allowed ranges:
   - `gpt-5`, `gpt-5-codex`:
@@ -150,6 +152,10 @@ The proxy combines these inputs as follows:
       upstream decide.
   - `gpt-5.1`, `gpt-5.1-codex`:
     - Allowed: `low`, `medium`, `high`
+    - `minimal` is coerced to `low`.
+    - Default when unspecified: `low`.
+  - `gpt-5.1-codex-max`:
+    - Allowed: `low`, `medium`, `high`, `xhigh`
     - `minimal` is coerced to `low`.
     - Default when unspecified: `low`.
   - `gpt-5-codex-mini`, `gpt-5.1-codex-mini`:

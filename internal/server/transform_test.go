@@ -147,6 +147,8 @@ func TestNormalizeModel(t *testing.T) {
 		{"gpt-5.1 base", "gpt-5.1", "gpt-5.1"},
 		{"gpt-5.1 with suffix", "gpt-5.1-high", "gpt-5.1"},
 		{"gpt-5.1 codex", "gpt-5.1-codex", "gpt-5.1-codex"},
+		{"gpt-5.1 codex max", "gpt-5.1-codex-max", "gpt-5.1-codex-max"},
+		{"gpt-5.1 codex max with suffix", "gpt-5.1-codex-max-xhigh", "gpt-5.1-codex-max"},
 		{"gpt-5.1 codex mini", "gpt-5.1-codex-mini", "gpt-5.1-codex-mini"},
 		{"gpt-5.1 codex mini with suffix", "gpt-5.1-codex-mini-high", "gpt-5.1-codex-mini"},
 		{"gpt-5 codex mini", "gpt-5-codex-mini", "gpt-5-codex-mini"},
@@ -170,6 +172,7 @@ func TestNormalizeReasoningEffort(t *testing.T) {
 		{"explicit low", "low", "low"},
 		{"explicit medium", "medium", "medium"},
 		{"explicit high", "high", "high"},
+		{"explicit xhigh", "xhigh", "xhigh"},
 		{"none maps to low", "none", "low"},
 		{"uppercase", "MEDIUM", "medium"},
 		{"empty", "", ""},
@@ -196,6 +199,8 @@ func TestClampReasoningEffortForModel(t *testing.T) {
 		{"gpt-5-codex-mini clamps low -> medium", modelGPT5CodexMini, "low", "medium"},
 		{"gpt-5-codex-mini default when empty -> medium", modelGPT5CodexMini, "", "medium"},
 		{"gpt-5.1-codex-high allowed", modelGPT51Codex, "high", "high"},
+		{"gpt-5.1-codex-max allows xhigh", modelGPT51CodexMax, "xhigh", "xhigh"},
+		{"gpt-5.1-codex-max minimal -> low", modelGPT51CodexMax, "minimal", "low"},
 	}
 
 	for _, tc := range tests {
