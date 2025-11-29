@@ -54,6 +54,7 @@ docker-build:
 
 # Build for Cloudflare Workers
 build-worker:
+	go run github.com/syumai/workers/cmd/workers-assets-gen -mode=go
 	GOOS=js GOARCH=wasm go build -o ./build/app.wasm cmd/claude-code-proxy-worker/main.go
 
 # Show help

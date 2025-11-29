@@ -1,4 +1,4 @@
-name = "claude-code-proxy"
+name = "codex-proxy"
 main = "build/worker.mjs"
 compatibility_date = "2022-05-13"
 account_id = "02c07a2514d9a25f58c78a180bb8c6f3"
@@ -15,3 +15,9 @@ ENV = "production"
 
 [build]
 command = "just build-worker"
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true
+persist = true
