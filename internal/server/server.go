@@ -146,6 +146,16 @@ func (s *Server) chatCompletionsHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Determine whether the client requested streaming.
+	// OpenAI's default is non-streaming when "stream" is omitted, so
+	// we treat absence as false and only stream when explicitly true.
+	stream := false
+	if v, ok := requestData["stream"]; ok {
+		if b, ok := v.(bool); ok {
+			stream = b
+		}
+	}
+
 	// Extract request parameters for logging
 	requestedModel := resolveRequestModel(requestData)
 	normalizedModel := normalizeModel(requestedModel)
@@ -228,8 +238,32 @@ func (s *Server) chatCompletionsHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Write the response
-	s.writeResponse(w, responseData, statusCode, normalizedModel, true)
+	// If the client requested streaming, reuse the existing SSE rewriting path.
+	if stream {
+		s.writeResponse(w, responseData, statusCode, normalizedModel, true)
+		return
+	}
+
+	// Non-streaming path: buffer the upstream SSE stream and synthesize a single
+	// chat completion response for clients that expect the classic JSON shape.
+	if statusCode != http.StatusOK {
+		s.writeResponse(w, responseData, statusCode, normalizedModel, false)
+		return
+	}
+
+	defer responseData.Body.Close()
+	respObj, err := bufferChatCompletionFromSSE(responseData.Body, normalizedModel)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("Error buffering SSE stream for non-streaming client")
+		http.Error(w, "Failed to process streaming response", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(respObj); err != nil {
+		s.logger.Error().Err(err).Msg("Error encoding buffered chat completion response")
+	}
 }
 
 func (s *Server) responsesHandler(w http.ResponseWriter, r *http.Request) {

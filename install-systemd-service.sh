@@ -31,13 +31,14 @@ echo "Generating systemd unit at ${SERVICE_FILE_LOCAL} (and will install to ${SE
 
 cat > "${SERVICE_FILE_LOCAL}" <<EOF
 [Unit]
-Description=Codex Proxy Go server
+Description=Codex Proxy
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
 WorkingDirectory=${PROJECT_DIR}
+Environment=HOME=${HOME}
 Environment=PORT=${PORT}
 Environment=ADMIN_API_KEY=${ADMIN_API_KEY}
 ExecStart=${PROJECT_DIR}/codex-proxy
@@ -80,4 +81,3 @@ echo "✅ systemd service installed and started."
 echo "Status:    systemctl status ${SERVICE_NAME}.service"
 echo "Logs:      journalctl -u ${SERVICE_NAME}.service -f"
 echo "Listening: 0.0.0.0:${PORT} (subject to firewall rules)"
-
