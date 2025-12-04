@@ -1031,6 +1031,49 @@ func (t *SSETransformer) Transform(dataLine []byte) (out []byte, done bool, err 
 		if t.sawToolCalls {
 			finish = "tool_calls"
 		}
+
+		// Map upstream usage (if present) into an OpenAI-style usage object.
+		// Upstream usage is typically nested under response.usage with fields like
+		// input_tokens / output_tokens / total_tokens. We convert these into
+		// prompt_tokens / completion_tokens / total_tokens. If nothing is
+		// available, fall back to zeros so clients that expect a usage object
+		// (like Xcode) still see a well-formed structure.
+		var usage map[string]interface{}
+		if respObj, ok := upstream["response"].(map[string]interface{}); ok {
+			if u, ok := respObj["usage"].(map[string]interface{}); ok {
+				outUsage := map[string]interface{}{}
+				if pt, ok := u["prompt_tokens"].(float64); ok {
+					outUsage["prompt_tokens"] = int(pt)
+				} else if it, ok := u["input_tokens"].(float64); ok {
+					outUsage["prompt_tokens"] = int(it)
+				}
+				if ct, ok := u["completion_tokens"].(float64); ok {
+					outUsage["completion_tokens"] = int(ct)
+				} else if ot, ok := u["output_tokens"].(float64); ok {
+					outUsage["completion_tokens"] = int(ot)
+				}
+				if tt, ok := u["total_tokens"].(float64); ok {
+					outUsage["total_tokens"] = int(tt)
+				} else {
+					if ptVal, ok := outUsage["prompt_tokens"].(int); ok {
+						if ctVal, ok2 := outUsage["completion_tokens"].(int); ok2 {
+							outUsage["total_tokens"] = ptVal + ctVal
+						}
+					}
+				}
+				if len(outUsage) > 0 {
+					usage = outUsage
+				}
+			}
+		}
+		if usage == nil {
+			usage = map[string]interface{}{
+				"prompt_tokens":     0,
+				"completion_tokens": 0,
+				"total_tokens":      0,
+			}
+		}
+
 		finalChunk := map[string]interface{}{
 			"id":      t.responseID,
 			"object":  "chat.completion.chunk",
@@ -1043,6 +1086,7 @@ func (t *SSETransformer) Transform(dataLine []byte) (out []byte, done bool, err 
 					"finish_reason": finish,
 				},
 			},
+			"usage": usage,
 		}
 		finalBytes, err := json.Marshal(finalChunk)
 		if err != nil {
@@ -1159,6 +1203,7 @@ func RewriteSSEStreamWithCallback(r io.Reader, w io.Writer, model string, onEven
 	transformer := NewSSETransformer(model)
 
 	var dataLines [][]byte
+	doneSeen := false
 	flushEvent := func() error {
 		if len(dataLines) == 0 {
 			return nil
@@ -1175,6 +1220,7 @@ func RewriteSSEStreamWithCallback(r io.Reader, w io.Writer, model string, onEven
 			return err
 		}
 		if done {
+			doneSeen = true
 			if _, err := w.Write([]byte("data: [DONE]\n\n")); err != nil {
 				return err
 			}
@@ -1249,6 +1295,13 @@ func RewriteSSEStreamWithCallback(r io.Reader, w io.Writer, model string, onEven
 	// Flush any trailing event without terminating blank line
 	if err := flushEvent(); err != nil {
 		return err
+	}
+	// Ensure downstream clients always see a DONE sentinel even if the upstream
+	// stream omitted an explicit [DONE] event.
+	if !doneSeen {
+		if _, err := w.Write([]byte("data: [DONE]\n\n")); err != nil {
+			return err
+		}
 	}
 	return nil
 }
