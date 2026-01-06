@@ -304,6 +304,9 @@ func normalizeModel(model string) string {
 	}
 
 	// Prefer explicit new model IDs first to keep mapping predictable.
+	if strings.Contains(lower, "gpt-5.2-codex") {
+		return modelGPT52Codex
+	}
 	if strings.Contains(lower, "gpt-5.2") {
 		return modelGPT52
 	}
