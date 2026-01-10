@@ -1,6 +1,26 @@
 # Codex Proxy
 
-Go proxy server that forwards OpenAI-compatible requests to the ChatGPT Codex Responses backend.
+Transparently proxy OpenAI-compatible chat completions requests to ChatGPT Codex's internal Responses API.
+
+```text
+  ┌───────────────┐          ┌───────────────────┐          ┌───────────────────────┐
+  │ External Tool │          │       Proxy       │          │    Codex Endpoint     │
+  │ (OpenCode/etc)│          │ (Local or Worker) │          │ (ChatGPT Responses)   │
+  └───────┬───────┘          └─────────┬─────────┘          └───────────┬───────────┘
+          │                            │                                │
+          │  Standard OpenAI Request   │    Internal API Request        │
+          │ ─────────────────────────▶ │ ─────────────────────────────▶ │
+          │ (v1/chat/completions)      │ (Wrapped + Codex credentials)  │
+          │                            │                                │
+          │                            │                                │
+          │  Standard API Response     │    Internal API Response       │
+          │ ◀───────────────────────── │ ◀───────────────────────────── │
+          │ (Unwrapped + SSE Stream)   │ (Codex-specific Stream)        │
+          │                            │                                │
+          ▼                            ▼                                ▼
+```
+
+This proxy exposes ChatGPT Codex (Plus/Pro subscription) through an OpenAI-compatible interface, allowing you to use opinionated models like `gpt-5` or `gpt-5.1-codex` with tools that expect standard OpenAI APIs.
 
 ## Setup
 
@@ -9,6 +29,7 @@ Go proxy server that forwards OpenAI-compatible requests to the ChatGPT Codex Re
 The proxy now uses **independent credential storage** to avoid token collisions with the system Codex CLI.
 
 **Default behavior (`--creds-store=auto`)**:
+
 - Stores credentials in `~/.config/codex-proxy/auth.json` (XDG config directory)
 - On first launch, automatically migrates from:
   1. Legacy file (`~/.codex/auth.json`) if it exists
@@ -17,6 +38,7 @@ The proxy now uses **independent credential storage** to avoid token collisions 
 - All subsequent token refreshes are stored in the new location
 
 **Credential store modes**:
+
 ```bash
 # Auto migration (default) - uses XDG config directory
 ./codex-proxy --creds-store=auto
@@ -38,18 +60,21 @@ The proxy now uses **independent credential storage** to avoid token collisions 
 ```
 
 **Migration flags**:
+
 ```bash
 # Skip immediate token refresh after migration (not recommended)
 ./codex-proxy --disable-migrate-refresh
 ```
 
 **Environment variables** (for `--creds-store=env` mode):
+
 ```bash
 export ACCESS_TOKEN="your-access-token"
 export ACCOUNT_ID="your-account-id"
 ```
 
 **Server config**:
+
 ```bash
 export PORT="3000"  # default: 9879
 export ENV="production"  # default: development (console logs)
@@ -57,6 +82,7 @@ export ENV="production"  # default: development (console logs)
 
 **Migration logs**:
 The server provides detailed logging during migration:
+
 - `🔍` - Checking for existing credentials
 - `📄` - Reading from legacy file or keychain
 - `💾` - Writing credentials to new location
@@ -66,6 +92,7 @@ The server provides detailed logging during migration:
 - `❌` - Errors
 
 **Troubleshooting**:
+
 - If migration fails, the server will continue with existing credentials if available
 - Check logs for detailed error messages
 - Use `--creds-store=legacy` to temporarily revert to old behavior
@@ -185,6 +212,7 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 ### Prerequisites
 
 1. Create a KV namespace in Cloudflare:
+
    ```bash
    wrangler kv:namespace create "GEMINI_CLI_KV"
    ```
@@ -222,12 +250,14 @@ curl -X POST https://your-worker.workers.dev/admin/credentials \
 ```
 
 **Required fields:**
+
 - `accessToken`: Access token for ChatGPT/Codex backend
 - `refreshToken`: Refresh token for automatic renewal
-- `expiresAt`: Token expiration timestamp in milliseconds (Unix timestamp * 1000)
+- `expiresAt`: Token expiration timestamp in milliseconds (Unix timestamp \* 1000)
 - `userID` (optional): User identifier for tracking
 
 **Getting tokens:**
+
 - Retrieve your ChatGPT/Codex session tokens from your OpenAI account session (e.g., via DevTools Network panel).
 - Ensure `expiresAt` reflects the token expiry in milliseconds.
 
@@ -241,6 +271,7 @@ curl https://your-worker.workers.dev/admin/credentials/status \
 ```
 
 This returns:
+
 ```json
 {
   "type": "oauth",
