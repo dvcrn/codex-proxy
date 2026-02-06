@@ -1,0 +1,55 @@
+version: 2
+
+project_name: codex-proxy
+
+builds:
+  - id: codex-proxy
+    main: ./cmd/codex-proxy
+    binary: codex-proxy
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      - 7
+    ignore:
+      # Windows ARMv7 isn't a thing we want to ship.
+      - goos: windows
+        goarch: arm
+    flags:
+      - -trimpath
+      - -buildvcs=false
+    ldflags:
+      - -s -w -buildid=
+
+archives:
+  - format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+    wrap_in_directory: false
+    files: []
+
+checksum:
+  name_template: checksums.txt
+
+release:
+  github:
+    owner: dvcrn
+    name: codex-proxy
+  replace_existing_artifacts: true
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - Merge pull request
+      - Merge branch

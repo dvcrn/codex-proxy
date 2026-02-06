@@ -1,6 +1,6 @@
 module github.com/dvcrn/claude-code-proxy
 
-go 1.23.4
+go 1.25.7
 
 require (
 	github.com/rs/zerolog v1.34.0

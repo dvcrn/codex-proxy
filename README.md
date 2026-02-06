@@ -24,6 +24,16 @@ This proxy exposes ChatGPT Codex (Plus/Pro subscription) through an OpenAI-compa
 
 ## Setup
 
+### Install (npm)
+
+macOS, Linux, and Windows are supported:
+
+```bash
+npm install -g @dvcrn/codex-proxy
+```
+
+This downloads a prebuilt `codex-proxy` binary from GitHub Releases at install time.
+
 ### Credentials Storage & Migration
 
 The proxy now uses **independent credential storage** to avoid token collisions with the system Codex CLI.

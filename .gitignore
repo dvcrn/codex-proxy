@@ -9,5 +9,8 @@ captured_logs/
 .gocache
 ./codex-proxy
 /codex-proxy
+npm/codex-proxy
+npm/codex-proxy.exe
 codex-proxy.service
 com.codex-proxy.plist
+dist
