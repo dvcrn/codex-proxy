@@ -1,8 +1,8 @@
 package app
 
 import (
-	"github.com/dvcrn/claude-code-proxy/internal/credentials"
-	"github.com/dvcrn/claude-code-proxy/internal/server"
+	"github.com/dvcrn/codex-proxy/internal/credentials"
+	"github.com/dvcrn/codex-proxy/internal/server"
 	"github.com/rs/zerolog"
 )
 

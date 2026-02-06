@@ -1,4 +1,4 @@
-module github.com/dvcrn/claude-code-proxy
+module github.com/dvcrn/codex-proxy
 
 go 1.25.7
 

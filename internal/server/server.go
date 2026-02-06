@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dvcrn/claude-code-proxy/internal/credentials"
+	"github.com/dvcrn/codex-proxy/internal/credentials"
 	"github.com/rs/zerolog"
 )
 

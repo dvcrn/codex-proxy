@@ -3,10 +3,10 @@
 package main
 
 import (
-	"github.com/dvcrn/claude-code-proxy/internal/app"
-	"github.com/dvcrn/claude-code-proxy/internal/auth"
-	"github.com/dvcrn/claude-code-proxy/internal/credentials"
-	"github.com/dvcrn/claude-code-proxy/internal/logger"
+	"github.com/dvcrn/codex-proxy/internal/app"
+	"github.com/dvcrn/codex-proxy/internal/auth"
+	"github.com/dvcrn/codex-proxy/internal/credentials"
+	"github.com/dvcrn/codex-proxy/internal/logger"
 	"github.com/syumai/workers"
 )
 
