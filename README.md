@@ -22,17 +22,21 @@ Transparently proxy OpenAI-compatible chat completions requests to ChatGPT Codex
 
 This proxy exposes ChatGPT Codex (Plus/Pro subscription) through an OpenAI-compatible interface, allowing you to use opinionated models like `gpt-5` or `gpt-5.1-codex` with tools that expect standard OpenAI APIs.
 
-## Setup
+## Install
 
-### Install (npm)
-
-macOS, Linux, and Windows are supported:
+Option 1 (recommended): install a prebuilt binary via npm (macOS, Linux, Windows):
 
 ```bash
 npm install -g @dvcrn/codex-proxy
 ```
 
-This downloads a prebuilt `codex-proxy` binary from GitHub Releases at install time.
+Option 2: install from source with Go:
+
+```bash
+go install github.com/dvcrn/codex-proxy/cmd/codex-proxy@latest
+```
+
+## Setup
 
 ### Credentials Storage & Migration
 
