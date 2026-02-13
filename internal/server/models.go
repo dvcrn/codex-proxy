@@ -9,6 +9,7 @@ const (
 	modelGPT52         = "gpt-5.2"
 	modelGPT52Codex    = "gpt-5.2-codex"
 	modelGPT53Codex    = "gpt-5.3-codex"
+	modelGPT53CodexSpark = "gpt-5.3-codex-spark"
 
 	modelGPT5CodexMini  = "gpt-5-codex-mini"
 	modelGPT51CodexMini = "gpt-5.1-codex-mini"
@@ -22,6 +23,7 @@ var modelAllowedEfforts = map[string][]string{
 	modelGPT52:          {"low", "medium", "high", "xhigh"},
 	modelGPT52Codex:     {"low", "medium", "high", "xhigh"},
 	modelGPT53Codex:     {"low", "medium", "high", "xhigh"},
+	modelGPT53CodexSpark: {"low", "medium", "high", "xhigh"},
 	modelGPT5Codex:      {"minimal", "low", "medium", "high"},
 	modelGPT51:          {"low", "medium", "high"},
 	modelGPT51Codex:     {"low", "medium", "high"},
@@ -37,6 +39,7 @@ var modelDefaultEffort = map[string]string{
 	modelGPT52:          "medium",
 	modelGPT52Codex:     "medium",
 	modelGPT53Codex:     "medium",
+	modelGPT53CodexSpark: "high",
 	modelGPT51Codex:     "low",
 	modelGPT51CodexMax:  "low",
 	modelGPT5CodexMini:  "medium",
@@ -197,6 +200,38 @@ var modelMetadataByID = map[string]modelMetadata{
 		SupportedEndpoints: []string{"/responses"},
 		Vendor:             "OpenAI",
 		Version:            "gpt-5.3-codex",
+	},
+	modelGPT53CodexSpark: {
+		Capabilities: map[string]interface{}{
+			"family": "gpt-5.3-codex-spark",
+			"limits": map[string]interface{}{
+				"max_context_window_tokens": 200000,
+				"max_output_tokens":         64000,
+				"max_prompt_tokens":         128000,
+				"vision": map[string]interface{}{
+					"max_prompt_image_size": 3145728,
+					"max_prompt_images":     1,
+					"supported_media_types": []string{"image/jpeg", "image/png", "image/webp", "image/gif"},
+				},
+			},
+			"object":    "model_capabilities",
+			"supports":  map[string]interface{}{"parallel_tool_calls": true, "streaming": true, "structured_outputs": true, "tool_calls": true, "vision": true},
+			"tokenizer": "o200k_base",
+			"type":      "chat",
+		},
+		ID:                  modelGPT53CodexSpark,
+		ModelPickerCategory: "powerful",
+		ModelPickerEnabled:  true,
+		Name:                "GPT-5.3-Codex Spark (Preview)",
+		Object:              "model",
+		Policy: &modelPolicy{
+			State: "enabled",
+			Terms: "Enable access to GPT-5.3-Codex Spark from OpenAI. [Learn more about how GitHub Copilot serves GPT-5.3-Codex Spark](https://gh.io/copilot-openai).",
+		},
+		Preview:            true,
+		SupportedEndpoints: []string{"/responses"},
+		Vendor:             "OpenAI",
+		Version:            "gpt-5.3-codex-spark",
 	},
 	modelGPT5Codex: {
 		Capabilities: map[string]interface{}{
@@ -396,6 +431,7 @@ var supportedModelIDs = []string{
 	modelGPT52,
 	modelGPT52Codex,
 	modelGPT53Codex,
+	modelGPT53CodexSpark,
 	modelGPT5Codex,
 	modelGPT51,
 	modelGPT51Codex,
