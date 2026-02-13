@@ -1,14 +1,14 @@
 package server
 
 const (
-	modelGPT5          = "gpt-5"
-	modelGPT5Codex     = "gpt-5-codex"
-	modelGPT51         = "gpt-5.1"
-	modelGPT51Codex    = "gpt-5.1-codex"
-	modelGPT51CodexMax = "gpt-5.1-codex-max"
-	modelGPT52         = "gpt-5.2"
-	modelGPT52Codex    = "gpt-5.2-codex"
-	modelGPT53Codex    = "gpt-5.3-codex"
+	modelGPT5            = "gpt-5"
+	modelGPT5Codex       = "gpt-5-codex"
+	modelGPT51           = "gpt-5.1"
+	modelGPT51Codex      = "gpt-5.1-codex"
+	modelGPT51CodexMax   = "gpt-5.1-codex-max"
+	modelGPT52           = "gpt-5.2"
+	modelGPT52Codex      = "gpt-5.2-codex"
+	modelGPT53Codex      = "gpt-5.3-codex"
 	modelGPT53CodexSpark = "gpt-5.3-codex-spark"
 
 	modelGPT5CodexMini  = "gpt-5-codex-mini"
@@ -19,31 +19,31 @@ const (
 // canonical backend model. Keys are canonical model IDs used in upstream
 // requests (after normalization).
 var modelAllowedEfforts = map[string][]string{
-	modelGPT5:           {"minimal", "low", "medium", "high"},
-	modelGPT52:          {"low", "medium", "high", "xhigh"},
-	modelGPT52Codex:     {"low", "medium", "high", "xhigh"},
-	modelGPT53Codex:     {"low", "medium", "high", "xhigh"},
+	modelGPT5:            {"minimal", "low", "medium", "high"},
+	modelGPT52:           {"low", "medium", "high", "xhigh"},
+	modelGPT52Codex:      {"low", "medium", "high", "xhigh"},
+	modelGPT53Codex:      {"low", "medium", "high", "xhigh"},
 	modelGPT53CodexSpark: {"low", "medium", "high", "xhigh"},
-	modelGPT5Codex:      {"minimal", "low", "medium", "high"},
-	modelGPT51:          {"low", "medium", "high"},
-	modelGPT51Codex:     {"low", "medium", "high"},
-	modelGPT51CodexMax:  {"low", "medium", "high", "xhigh"},
-	modelGPT5CodexMini:  {"medium", "high"},
-	modelGPT51CodexMini: {"medium", "high"},
+	modelGPT5Codex:       {"minimal", "low", "medium", "high"},
+	modelGPT51:           {"low", "medium", "high"},
+	modelGPT51Codex:      {"low", "medium", "high"},
+	modelGPT51CodexMax:   {"low", "medium", "high", "xhigh"},
+	modelGPT5CodexMini:   {"medium", "high"},
+	modelGPT51CodexMini:  {"medium", "high"},
 }
 
 // modelDefaultEffort defines the default reasoning effort to apply when the
 // user does not explicitly specify an effort for the given model.
 var modelDefaultEffort = map[string]string{
-	modelGPT51:          "low",
-	modelGPT52:          "medium",
-	modelGPT52Codex:     "medium",
-	modelGPT53Codex:     "medium",
+	modelGPT51:           "low",
+	modelGPT52:           "medium",
+	modelGPT52Codex:      "medium",
+	modelGPT53Codex:      "medium",
 	modelGPT53CodexSpark: "high",
-	modelGPT51Codex:     "low",
-	modelGPT51CodexMax:  "low",
-	modelGPT5CodexMini:  "medium",
-	modelGPT51CodexMini: "medium",
+	modelGPT51Codex:      "low",
+	modelGPT51CodexMax:   "low",
+	modelGPT5CodexMini:   "medium",
+	modelGPT51CodexMini:  "medium",
 }
 
 // modelMetadata mirrors the JSON schema required by the OpenAI-compatible

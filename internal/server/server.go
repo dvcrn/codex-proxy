@@ -212,10 +212,13 @@ func (s *Server) chatCompletionsHandler(w http.ResponseWriter, r *http.Request) 
 
 	upstreamURL := "https://chatgpt.com/backend-api/codex/responses"
 
+	transport := upstreamTransportForModel(normalizedModel)
+
 	// Log request details
 	logEvent := s.logger.Info().
 		Str("requested_model", requestedModel).
 		Str("normalized_model", normalizedModel).
+		Str("upstream_transport", transport).
 		Str("requested_reasoning_effort", reasoningEffort).
 		Str("normalized_reasoning_effort", normalizedReasoningEffort).
 		Int("message_count", messageCount).
@@ -231,7 +234,7 @@ func (s *Server) chatCompletionsHandler(w http.ResponseWriter, r *http.Request) 
 	logEvent.Msg("Processing chat completion request")
 
 	// Make upstream request with automatic retry on 401
-	responseData, statusCode, err := s.makeChatGPTRequestWithRetry(r, upstreamURL, modifiedBodyBytes)
+	responseData, statusCode, err := s.makeChatGPTRequestWithRetry(r, upstreamURL, modifiedBodyBytes, normalizedModel)
 	if err != nil {
 		s.logger.Error().Err(err).Msg("Error making request to ChatGPT backend")
 		http.Error(w, "Failed to communicate with upstream API: "+err.Error(), http.StatusServiceUnavailable)
@@ -332,9 +335,11 @@ func (s *Server) responsesHandler(w http.ResponseWriter, r *http.Request) {
 		Msg("Responses transform debug: body previews")
 
 	upstreamURL := "https://chatgpt.com/backend-api/codex/responses"
+	transport := upstreamTransportForModel(normalizedModel)
 	logEvent := s.logger.Info().
 		Str("requested_model", requestedModel).
 		Str("normalized_model", normalizedModel).
+		Str("upstream_transport", transport).
 		Str("requested_reasoning_effort", requestedEffort).
 		Str("normalized_reasoning_effort", normalizedEffort).
 		Str("prompt_cache_key", cacheKey).
@@ -343,7 +348,7 @@ func (s *Server) responsesHandler(w http.ResponseWriter, r *http.Request) {
 		Str("endpoint", upstreamURL)
 	logEvent.Msg("Processing responses request")
 
-	responseData, statusCode, err := s.makeChatGPTRequestWithRetry(r, upstreamURL, modifiedBodyBytes)
+	responseData, statusCode, err := s.makeChatGPTRequestWithRetry(r, upstreamURL, modifiedBodyBytes, normalizedModel)
 	if err != nil {
 		s.logger.Error().Err(err).Msg("Error making request to ChatGPT backend")
 		http.Error(w, "Failed to communicate with upstream API: "+err.Error(), http.StatusServiceUnavailable)
@@ -474,8 +479,13 @@ func (s *Server) makeChatGPTRequest(r *http.Request, url string, body []byte, to
 	return resp, resp.StatusCode, nil
 }
 
-// makeChatGPTRequestWithRetry makes a request to ChatGPT API with automatic retry on 401 errors
-func (s *Server) makeChatGPTRequestWithRetry(r *http.Request, url string, body []byte) (*http.Response, int, error) {
+// makeChatGPTRequestWithRetry makes an upstream request with automatic retry on 401 errors.
+func (s *Server) makeChatGPTRequestWithRetry(r *http.Request, url string, body []byte, normalizedModel string) (*http.Response, int, error) {
+	makeRequest := s.makeChatGPTRequest
+	if shouldUseWebSocketUpstream(normalizedModel) {
+		makeRequest = s.makeChatGPTWebSocketRequest
+	}
+
 	// Get initial credentials
 	token, accountID, err := s.credsFetcher.GetCredentials()
 	if err != nil {
@@ -483,7 +493,7 @@ func (s *Server) makeChatGPTRequestWithRetry(r *http.Request, url string, body [
 	}
 
 	// Make the first request
-	resp, statusCode, err := s.makeChatGPTRequest(r, url, body, token, accountID)
+	resp, statusCode, err := makeRequest(r, url, body, token, accountID)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -516,7 +526,7 @@ func (s *Server) makeChatGPTRequestWithRetry(r *http.Request, url string, body [
 	}
 
 	// Retry the request with new credentials
-	resp, statusCode, err = s.makeChatGPTRequest(r, url, body, token, accountID)
+	resp, statusCode, err = makeRequest(r, url, body, token, accountID)
 	if err != nil {
 		return nil, 0, fmt.Errorf("retry request failed: %w", err)
 	}
