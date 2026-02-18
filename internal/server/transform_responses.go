@@ -116,13 +116,19 @@ func sanitizeResponsesInput(body map[string]interface{}) {
 	if !ok {
 		return
 	}
+	filtered := input[:0:0]
 	for _, msg := range input {
 		msgMap, ok := msg.(map[string]interface{})
 		if !ok {
+			filtered = append(filtered, msg)
+			continue
+		}
+		if role, _ := msgMap["role"].(string); role == "system" {
 			continue
 		}
 		contents, ok := msgMap["content"].([]interface{})
 		if !ok {
+			filtered = append(filtered, msg)
 			continue
 		}
 		for _, item := range contents {
@@ -134,5 +140,7 @@ func sanitizeResponsesInput(body map[string]interface{}) {
 				itemMap["text"] = replaceNames(text)
 			}
 		}
+		filtered = append(filtered, msg)
 	}
+	body["input"] = filtered
 }
