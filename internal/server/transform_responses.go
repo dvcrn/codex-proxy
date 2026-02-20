@@ -9,32 +9,54 @@ func transformResponsesRequestBody(body map[string]interface{}, requestedModel s
 	// Responses must always disable server-side store per upstream requirements
 	body["store"] = false
 
-	// Preserve any user-provided instructions separately and do NOT merge them
-	// into the core Codex system prompt. Instead, set the canonical instructions
-	// to the codex prefix and append the user's instructions as an additional
-	// `input` message so the upstream system prompt remains unchanged.
 	var userInstr string
 	if existingInstr, ok := body["instructions"].(string); ok {
 		userInstr = strings.TrimSpace(existingInstr)
-		// remove original to avoid accidental merging downstream
 		delete(body, "instructions")
 	}
 
-	body["instructions"] = codexInstructionsPrefix()
-
+	var systemText string
 	var allInstructions []interface{}
-	if userInstr != "" {
-		developerMsg := map[string]interface{}{
-			"role":    "developer",
-			"content": replaceNames(userInstr),
-		}
-		allInstructions = append(allInstructions, developerMsg)
-	}
-
 	if existingInput, ok := body["input"]; ok {
 		if inSlice, ok := existingInput.([]interface{}); ok {
-			allInstructions = append(allInstructions, inSlice...)
+			for _, msg := range inSlice {
+				msgMap, ok := msg.(map[string]interface{})
+				if !ok {
+					allInstructions = append(allInstructions, msg)
+					continue
+				}
+				if role, _ := msgMap["role"].(string); role == "system" {
+					var parts []string
+					if contents, ok := msgMap["content"].([]interface{}); ok {
+						for _, item := range contents {
+							if itemMap, ok := item.(map[string]interface{}); ok {
+								if text, ok := itemMap["text"].(string); ok && text != "" {
+									parts = append(parts, text)
+								}
+							}
+						}
+					}
+					systemText = strings.Join(parts, "\n\n")
+				} else {
+					allInstructions = append(allInstructions, msg)
+				}
+			}
 		}
+	}
+
+	if userInstr != "" && systemText != "" {
+		body["instructions"] = userInstr
+		developerMsg := map[string]interface{}{
+			"role":    "developer",
+			"content": replaceNames(systemText),
+		}
+		allInstructions = append([]interface{}{developerMsg}, allInstructions...)
+	} else if userInstr != "" {
+		body["instructions"] = userInstr
+	} else if systemText != "" {
+		body["instructions"] = replaceNames(systemText)
+	} else {
+		body["instructions"] = ""
 	}
 
 	body["input"] = allInstructions
