@@ -141,8 +141,10 @@ func TestNormalizeModel(t *testing.T) {
 	}{
 		{"codex lowercase", "gpt-5-codex", "gpt-5-codex"},
 		{"codex uppercase", "GPT-5-CODEX", "gpt-5-codex"},
-		{"codex inside name", "gpt-5-mini-codex-preview", "gpt-5-codex"},
-		{"non codex", "gpt-5-mini", "gpt-5"},
+		{"codex inside name", "gpt-5-mini-codex-preview", "gpt-5.1-codex-mini"},
+		{"non codex", "gpt-5-mini", "gpt-5.1-codex-mini"},
+		{"gpt-4o mini", "gpt-4o-mini", "gpt-5.1-codex-mini"},
+		{"gpt-4o base", "gpt-4o", "gpt-5.1-codex-mini"},
 		{"empty", "", "gpt-5"},
 		{"gpt-5.1 base", "gpt-5.1", "gpt-5.1"},
 		{"gpt-5.2 base", "gpt-5.2", "gpt-5.2"},

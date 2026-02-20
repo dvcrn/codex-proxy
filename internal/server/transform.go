@@ -332,6 +332,13 @@ func normalizeModel(model string) string {
 	if strings.Contains(lower, "gpt-5-codex-mini") {
 		return modelGPT5CodexMini
 	}
+	// Fallbacks for older/legacy mini family naming.
+	if strings.Contains(lower, "mini") {
+		return modelGPT51CodexMini
+	}
+	if strings.Contains(lower, "4o") {
+		return modelGPT51CodexMini
+	}
 	if strings.Contains(lower, "gpt-5-codex") || strings.Contains(lower, "codex") {
 		return modelGPT5Codex
 	}

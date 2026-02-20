@@ -462,11 +462,6 @@ func (s *Server) makeChatGPTRequest(r *http.Request, url string, body []byte, to
 	// The CLI uses turn_id, so let's mock one
 	proxyReq.Header.Set("x-codex-turn-metadata", `{"turn_id":"`+newUUIDv4()+`","sandbox":"none"}`)
 
-	// Log full outbound body for debugging 
-	s.logger.Info().
-		Str("outbound_request_body_full", string(body)).
-		Msg("Full outbound request payload")
-
 	// Log outbound header summary (sanitized)
 	s.logger.Info().
 		Str("authorization_preview", "Bearer "+func() string {
