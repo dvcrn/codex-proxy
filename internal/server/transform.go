@@ -170,7 +170,7 @@ func buildCodexRequestBody(requestData map[string]interface{}) map[string]interf
 	initialGreeting := map[string]interface{}{
 		"type":    "message",
 		"id":      nil,
-		"role":    "user",
+		"role":    "developer",
 		"content": []interface{}{map[string]interface{}{"type": "input_text", "text": inversePrompt}},
 	}
 
@@ -556,7 +556,7 @@ func buildCodexInputMessages(requestData map[string]interface{}) []interface{} {
 	input = append(input, map[string]interface{}{
 		"type": "message",
 		"id":   nil,
-		"role": "user",
+		"role": "developer",
 		"content": []interface{}{
 			map[string]interface{}{
 				"type": "input_text",

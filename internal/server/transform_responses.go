@@ -20,43 +20,21 @@ func transformResponsesRequestBody(body map[string]interface{}, requestedModel s
 		delete(body, "instructions")
 	}
 
-	instructions := codexInstructionsPrefix()
-	body["instructions"] = instructions
+	body["instructions"] = codexInstructionsPrefix()
 
-	overrideInstructions := map[string]interface{}{
-		"type": "message",
-		"id":   nil,
-		"role": "user",
-		"content": []interface{}{
-			map[string]interface{}{
-				"type": "input_text",
-				"text": inversePrompt,
-			},
-		},
+	var allInstructions []interface{}
+	if userInstr != "" {
+		developerMsg := map[string]interface{}{
+			"role":    "developer",
+			"content": replaceNames(userInstr),
+		}
+		allInstructions = append(allInstructions, developerMsg)
 	}
-
-	allInstructions := []interface{}{overrideInstructions}
 
 	if existingInput, ok := body["input"]; ok {
 		if inSlice, ok := existingInput.([]interface{}); ok {
 			allInstructions = append(allInstructions, inSlice...)
 		}
-	}
-
-	if userInstr != "" {
-		repl := replaceNames(userInstr)
-		userMsg := map[string]interface{}{
-			"type": "message",
-			"id":   nil,
-			"role": "user",
-			"content": []interface{}{
-				map[string]interface{}{
-					"type": "input_text",
-					"text": repl,
-				},
-			},
-		}
-		allInstructions = append(allInstructions, userMsg)
 	}
 
 	body["input"] = allInstructions
