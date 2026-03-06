@@ -7,6 +7,7 @@ const (
 	modelGPT51Codex      = "gpt-5.1-codex"
 	modelGPT51CodexMax   = "gpt-5.1-codex-max"
 	modelGPT52           = "gpt-5.2"
+	modelGPT54           = "gpt-5.4"
 	modelGPT52Codex      = "gpt-5.2-codex"
 	modelGPT53Codex      = "gpt-5.3-codex"
 	modelGPT53CodexSpark = "gpt-5.3-codex-spark"
@@ -21,6 +22,7 @@ const (
 var modelAllowedEfforts = map[string][]string{
 	modelGPT5:            {"minimal", "low", "medium", "high"},
 	modelGPT52:           {"low", "medium", "high", "xhigh"},
+	modelGPT54:           {"low", "medium", "high", "xhigh"},
 	modelGPT52Codex:      {"low", "medium", "high", "xhigh"},
 	modelGPT53Codex:      {"low", "medium", "high", "xhigh"},
 	modelGPT53CodexSpark: {"low", "medium", "high", "xhigh"},
@@ -37,6 +39,7 @@ var modelAllowedEfforts = map[string][]string{
 var modelDefaultEffort = map[string]string{
 	modelGPT51:           "low",
 	modelGPT52:           "medium",
+	modelGPT54:           "medium",
 	modelGPT52Codex:      "medium",
 	modelGPT53Codex:      "medium",
 	modelGPT53CodexSpark: "high",
@@ -136,6 +139,37 @@ var modelMetadataByID = map[string]modelMetadata{
 		Preview: false,
 		Vendor:  "Azure OpenAI",
 		Version: "gpt-5.2",
+	},
+	modelGPT54: {
+		Capabilities: map[string]interface{}{
+			"family": "gpt-5.4",
+			"limits": map[string]interface{}{
+				"max_context_window_tokens": 264000,
+				"max_output_tokens":         64000,
+				"max_prompt_tokens":         128000,
+				"vision": map[string]interface{}{
+					"max_prompt_image_size": 3145728,
+					"max_prompt_images":     1,
+					"supported_media_types": []string{"image/jpeg", "image/png", "image/webp", "image/gif"},
+				},
+			},
+			"object":    "model_capabilities",
+			"supports":  map[string]interface{}{"parallel_tool_calls": true, "streaming": true, "structured_outputs": true, "tool_calls": true, "vision": true},
+			"tokenizer": "o200k_base",
+			"type":      "chat",
+		},
+		ID:                  modelGPT54,
+		ModelPickerCategory: "versatile",
+		ModelPickerEnabled:  true,
+		Name:                "GPT-5.4",
+		Object:              "model",
+		Policy: &modelPolicy{
+			State: "enabled",
+			Terms: "Enable access to GPT-5.4 from OpenAI. [Learn more about how GitHub Copilot serves GPT-5.4](https://gh.io/copilot-openai).",
+		},
+		Preview: false,
+		Vendor:  "Azure OpenAI",
+		Version: "gpt-5.4",
 	},
 	modelGPT52Codex: {
 		Capabilities: map[string]interface{}{
@@ -429,6 +463,7 @@ var modelMetadataByID = map[string]modelMetadata{
 var supportedModelIDs = []string{
 	modelGPT5,
 	modelGPT52,
+	modelGPT54,
 	modelGPT52Codex,
 	modelGPT53Codex,
 	modelGPT53CodexSpark,
