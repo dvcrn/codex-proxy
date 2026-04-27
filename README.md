@@ -144,6 +144,7 @@ The `/v1/models` endpoint returns metadata for these base models:
 - `gpt-5.2-codex`
 - `gpt-5.3-codex`
 - `gpt-5.3-codex-spark`
+- `gpt-5.5`
 - `gpt-5-codex-mini`
 - `gpt-5.1-codex-mini`
 
@@ -151,6 +152,7 @@ Each base model is also exposed with reasoning-effort suffix variants, e.g.:
 
 - `gpt-5-high`, `gpt-5-medium`, `gpt-5-low`, `gpt-5-minimal`
 - `gpt-5.1-high`, `gpt-5.1-medium`, `gpt-5.1-low`
+- `gpt-5.5-low`, `gpt-5.5-medium`, `gpt-5.5-high`, `gpt-5.5-xhigh`
 - `gpt-5.1-codex-max-low`, `gpt-5.1-codex-max-high`, `gpt-5.1-codex-max-xhigh`
 - `gpt-5.3-codex-spark-low`, `gpt-5.3-codex-spark-medium`, `gpt-5.3-codex-spark-high`, `gpt-5.3-codex-spark-xhigh`
 - `gpt-5-codex-mini-medium`, `gpt-5-codex-mini-high`
@@ -167,6 +169,7 @@ normalizes them to canonical backend models before forwarding upstream:
   a reasoning-effort hint and stripped from the model name before normalization.
 - Explicit new models are preserved:
   - `gpt-5.1*` → `gpt-5.1`, `gpt-5.1-codex`, `gpt-5.1-codex-max`, or `gpt-5.1-codex-mini` depending on the prefix.
+  - `gpt-5.5*` → `gpt-5.5` when the suffix is a supported reasoning effort.
   - `gpt-5-codex-mini*` → `gpt-5-codex-mini`.
   - `gpt-5.3-codex-spark*` → `gpt-5.3-codex-spark`.
 - For legacy and loose names:
@@ -205,6 +208,9 @@ The proxy combines these inputs as follows:
     - Allowed: `low`, `medium`, `high`, `xhigh`
     - `minimal` is coerced to `low`.
     - Default when unspecified: `low`.
+  - `gpt-5.2`, `gpt-5.2-codex`, `gpt-5.3-codex`, `gpt-5.3-codex-spark`, `gpt-5.5`:
+    - Allowed: `low`, `medium`, `high`, `xhigh`
+    - Default when unspecified: `medium` (`gpt-5.3-codex-spark` defaults to `high`).
   - `gpt-5-codex-mini`, `gpt-5.1-codex-mini`:
     - Allowed: `medium`, `high`
     - `low`/`minimal`/`none` are coerced to `medium`.
